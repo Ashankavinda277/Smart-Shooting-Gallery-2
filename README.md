@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Smart Shooting Gallery
 
 A web-based interactive shooting gallery with physical targets that connect to the web application via ESP8266/NodeMCU and WebSockets.
@@ -132,3 +133,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - Arduino and ESP8266 communities
 - React and Node.js communities
+=======
+# Smart-Shooting-Gallery-2
+>>>>>>> 58389c4625664bdbdac92be048953c14ef22b946
