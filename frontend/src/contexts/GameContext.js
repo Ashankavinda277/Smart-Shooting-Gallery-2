@@ -16,26 +16,33 @@ export const GameProvider = ({ children }) => {
 
   // Game scores
   const [scores, setScores] = useState([]);
-  
+
+  // Global refresh flag for leaderboard/progress
+  const [needsRefresh, setNeedsRefresh] = useState(false);
+
   // Context value
   const value = {
     // User information
     user,
     setUser,
-    
+
     // Game mode
     gameMode,
     setGameMode,
-    
+
     // Game settings
-    gameSettings, 
+    gameSettings,
     setGameSettings,
-    
+
     // Scores
     scores,
-    setScores
+    setScores,
+
+    // Refresh flag
+    needsRefresh,
+    setNeedsRefresh
   };
-  
+
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 };
 

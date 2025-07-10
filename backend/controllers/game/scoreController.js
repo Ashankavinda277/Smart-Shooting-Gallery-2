@@ -79,3 +79,33 @@ exports.getUserBestScore = async (req, res) => {
     return errorResponse(res, 400, err.message);
   }
 };
+
+/**
+ * Get leaderboard for all or specific mode
+ * @route GET /api/game/scores/leaderboard?mode=all|easy|medium|hard
+ */
+exports.getLeaderboard = async (req, res) => {
+  const mode = req.query.mode || 'all';
+  const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+  try {
+    let scores;
+    if (mode === 'all') {
+      // Get top scores for all modes
+      scores = await require('../../models/game/Score')
+        .find({})
+        .sort({ score: -1 })
+        .limit(limit)
+        .populate('user', 'username age');
+    } else {
+      // Get top scores for a specific mode
+      scores = await require('../../models/game/Score')
+        .find({ gameMode: mode })
+        .sort({ score: -1 })
+        .limit(limit)
+        .populate('user', 'username age');
+    }
+    return successResponse(res, 200, 'Leaderboard retrieved successfully', { scores });
+  } catch (err) {
+    return errorResponse(res, 400, err.message);
+  }
+};

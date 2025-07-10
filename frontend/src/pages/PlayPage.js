@@ -66,7 +66,7 @@ const PlayPage = () => {
   const wsRef = useRef(null);
 
   const navigate = useNavigate();
-  const { user, gameMode, gameSettings } = useGameContext();
+  const { user, gameMode, gameSettings, setNeedsRefresh } = useGameContext();
 
   const gameAreaDimensions = useMemo(() => {
     if (!gameAreaRef.current) return { width: 0, height: 0 };
@@ -123,11 +123,19 @@ const PlayPage = () => {
             }
           }
 
+          if (data.type === 'target_hit' && typeof data.scoreIncrement === 'number') {
+            setScore(prev => prev + data.scoreIncrement);
+          }
+
+          if (data.type === 'hit_registered' && data.hitData && typeof data.hitData.scoreIncrement === 'number') {
+            setScore(prev => prev + data.hitData.scoreIncrement);
+          }
+
           if (data.type === 'hit' && data.position) {
-            setHitPositions(prev => [...prev, { 
-              x: data.position.x, 
-              y: data.position.y, 
-              id: Date.now() 
+            setHitPositions(prev => [...prev, {
+              x: data.position.x,
+              y: data.position.y,
+              id: Date.now()
             }]);
           }
         } catch (error) {
@@ -243,16 +251,6 @@ const PlayPage = () => {
     return { accuracy, hitsPerSecond, totalClicks: totalClicksCount, totalHits: finalScore };
   }, [timeLeft]);
 
-  const endGame = useCallback(() => {
-    if (!isMounted.current) return;
-    clearInterval(timerIntervalRef.current);
-    clearInterval(targetMoveIntervalRef.current);
-    setGameState('finished');
-    const finalStats = calculateGameStats(score, totalClicks.current, settings.gameDuration);
-    setGameStats(finalStats);
-    if (user?.id) submitGameScore(score, finalStats);
-  }, [score, settings.gameDuration, calculateGameStats, user]);
-
   const submitGameScore = useCallback(async (finalScore, stats) => {
     if (!isMounted.current) return;
     setIsLoading(true);
@@ -273,14 +271,37 @@ const PlayPage = () => {
     }
   }, [user, gameMode, settings.gameDuration]);
 
+  const endGame = useCallback(() => {
+    if (!isMounted.current) return;
+    clearInterval(timerIntervalRef.current);
+    clearInterval(targetMoveIntervalRef.current);
+    closeWebSocket();
+    setGameState('finished');
+    const finalStats = calculateGameStats(score, totalClicks.current, settings.gameDuration);
+    setGameStats(finalStats);
+    if (user?.id) {
+      submitGameScore(score, finalStats).then(() => {
+        if (setNeedsRefresh) setNeedsRefresh(true);
+      });
+    }
+  }, [score, settings.gameDuration, calculateGameStats, user, setNeedsRefresh, submitGameScore]);
+
   const handleGameAreaClick = useCallback((e) => {
     if (gameState !== 'playing' || !gameAreaRef.current) return;
     const rect = gameAreaRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     totalClicks.current += 1;
-    let hit = false;
 
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'click',
+        position: { x, y },
+        timestamp: Date.now()
+      }));
+    }
+
+    let hit = false;
     targets.forEach(target => {
       const dx = x - (target.left + target.size / 2);
       const dy = y - (target.top + target.size / 2);
@@ -302,14 +323,9 @@ const PlayPage = () => {
     }
   }, [gameState, targets, generateTargets]);
 
-  // ... UI rendering and styled components as in your original code
-
   return (
-    <div>/* Return full JSX content here as you already have it. Keep styling and layout same */</div>
+    <div>/* Return full JSX content here */</div>
   );
 };
 
 export default PlayPage;
-
-
-

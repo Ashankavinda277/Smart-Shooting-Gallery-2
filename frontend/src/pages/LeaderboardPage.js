@@ -11,7 +11,7 @@ const LeaderboardPage = () => {
   const [error, setError] = useState(null);
   const [activeMode, setActiveMode] = useState('all');
   const navigate = useNavigate();
-  const { gameMode } = useGameContext();
+  const { gameMode, needsRefresh, setNeedsRefresh } = useGameContext();
   
   useEffect(() => {
     const loadLeaderboard = async () => {
@@ -28,11 +28,11 @@ const LeaderboardPage = () => {
         setError('Error connecting to server');
       } finally {
         setIsLoading(false);
+        if (needsRefresh && setNeedsRefresh) setNeedsRefresh(false);
       }
     };
-    
     loadLeaderboard();
-  }, [activeMode]);
+  }, [activeMode, needsRefresh, setNeedsRefresh]);
   
   const handleModeChange = (mode) => {
     setActiveMode(mode);
@@ -44,25 +44,25 @@ const LeaderboardPage = () => {
         <h1>LEADERBOARD</h1>
         <ModeToggle>
           <ModeButton 
-            active={activeMode === 'all'} 
+            $active={activeMode === 'all'} 
             onClick={() => handleModeChange('all')}
           >
             All Modes
           </ModeButton>
           <ModeButton 
-            active={activeMode === 'easy'} 
+            $active={activeMode === 'easy'} 
             onClick={() => handleModeChange('easy')}
           >
             Easy
           </ModeButton>
           <ModeButton 
-            active={activeMode === 'medium'} 
+            $active={activeMode === 'medium'} 
             onClick={() => handleModeChange('medium')}
           >
             Medium
           </ModeButton>
           <ModeButton 
-            active={activeMode === 'hard'} 
+            $active={activeMode === 'hard'} 
             onClick={() => handleModeChange('hard')}
           >
             Hard
@@ -148,14 +148,14 @@ const ModeButton = styled.button`
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 30px;
-  background: ${props => props.active ? '#27ae60' : '#34495e'};
+  background: ${props => props.$active ? '#27ae60' : '#34495e'};
   color: white;
   cursor: pointer;
   transition: all 0.2s;
   
   &:hover {
     transform: translateY(-2px);
-    background: ${props => props.active ? '#219a52' : '#2c3e50'};
+    background: ${props => props.$active ? '#219a52' : '#2c3e50'};
   }
 `;
 

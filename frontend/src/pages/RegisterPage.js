@@ -31,10 +31,8 @@ const RegisterPage = () => {
         setUser(response.user);
         navigate("/game-modes");
       } else {
-        // Check if it's a duplicate username error
         if (response.error && response.error.includes("already exists")) {
           setError(`${response.error} Would you like to sign in instead?`);
-          // Optionally, you could auto-switch to sign-in after a delay
           setTimeout(() => {
             setIsSignUp(false);
             setError("");
@@ -113,8 +111,8 @@ const RegisterPage = () => {
         )}
 
         <Button
-          variant='outline'
-          type='button'
+          variant="outline"
+          type="button"
           onClick={() => navigate("/")}
           disabled={isLoading}
           fullWidth
@@ -130,6 +128,7 @@ const RegisterPage = () => {
   );
 };
 
+// Styled components
 const RegisterWrapper = styled.div`
   display: flex;
   justify-content: center;
