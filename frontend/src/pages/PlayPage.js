@@ -41,6 +41,68 @@ const DIFFICULTY_SETTINGS = {
   }
 };
 
+// Styled Components for Game UI (must be defined before use)
+const GameWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #232526 0%, #414345 100%);
+`;
+
+const TopBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100vw;
+  max-width: 900px;
+  padding: 32px 32px 0 32px;
+`;
+
+const Score = styled.div`
+  font-size: 2rem;
+  color: #ffd700;
+  font-weight: 700;
+`;
+
+const Timer = styled.div`
+  font-size: 2rem;
+  color: ${props => props.$low ? '#e74c3c' : '#27ae60'};
+  font-weight: 700;
+`;
+
+const GameArea = styled.div`
+  position: relative;
+  width: 800px;
+  height: 500px;
+  background: #222c;
+  border-radius: 18px;
+  margin-top: 32px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px #0005;
+  cursor: crosshair;
+`;
+
+const HitDot = styled.div`
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(46, 204, 113, 0.8);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+`;
+
+const MissDot = styled.div`
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(231, 76, 60, 0.7);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+`;
+
 const PlayPage = () => {
   const [gameState, setGameState] = useState('ready');
   const [score, setScore] = useState(0);
@@ -331,11 +393,17 @@ const PlayPage = () => {
     const FinalPage = React.lazy(() => import('./FinalPage'));
     return (
       <React.Suspense fallback={<Loader />}>
-        <FinalPage onStart={() => {
-          setShowFinal(false);
-          setFinalPageStart(true);
-          setGameState('playing'); // Start the game immediately
-        }} />
+        <FinalPage
+          onStart={() => {
+            setShowFinal(false);
+            setFinalPageStart(true);
+            setTimeout(() => {
+              startGame();
+            }, 0);
+          }}
+          score={score}
+          timeLeft={timeLeft}
+        />
       </React.Suspense>
     );
   }
@@ -373,67 +441,7 @@ const PlayPage = () => {
     );
   }
 
-// Styled Components for Game UI
-const GameWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #232526 0%, #414345 100%);
-`;
 
-const TopBar = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100vw;
-  max-width: 900px;
-  padding: 32px 32px 0 32px;
-`;
-
-const Score = styled.div`
-  font-size: 2rem;
-  color: #ffd700;
-  font-weight: 700;
-`;
-
-const Timer = styled.div`
-  font-size: 2rem;
-  color: ${props => props.$low ? '#e74c3c' : '#27ae60'};
-  font-weight: 700;
-`;
-
-const GameArea = styled.div`
-  position: relative;
-  width: 800px;
-  height: 500px;
-  background: #222c;
-  border-radius: 18px;
-  margin-top: 32px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px #0005;
-  cursor: crosshair;
-`;
-
-const HitDot = styled.div`
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: rgba(46, 204, 113, 0.8);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-`;
-
-const MissDot = styled.div`
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: rgba(231, 76, 60, 0.7);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-`;
 
   // Optionally, handle other states (paused, finished, etc.)
   return null;

@@ -1,6 +1,7 @@
+
 // Polyfill for process.env in browser (for CRA/webpack if needed)
 if (typeof process === 'undefined') {
-  window.process = { env: {} };
+  window.process = { env: { REACT_APP_WS_URL: '' } };
 }
 
 import React from 'react';
