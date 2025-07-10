@@ -11,3 +11,7 @@ exports.registerUser = async (req, res) => {
     return errorResponse(res, 400, err.message);
   }
 };
+
+
+
+

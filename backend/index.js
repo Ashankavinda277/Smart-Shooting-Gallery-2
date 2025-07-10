@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
+const path = require('path');
 require('dotenv').config();
 
 // Import configurations and middleware
@@ -27,6 +28,9 @@ setupWebSocketServer(server);
 app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
+
+// Serve static files from frontend public directory
+app.use(express.static(path.join(__dirname, '../frontend/public')));
 
 // Connect to MongoDB
 connectDB();

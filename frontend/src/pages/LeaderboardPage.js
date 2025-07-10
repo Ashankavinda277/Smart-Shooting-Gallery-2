@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { fetchLeaderboard } from '../services/api';
-import Loader from '../components/Loader';
+import Loader from '../components/common/Loader';
 import { useGameContext } from '../contexts/GameContext';
 
 const LeaderboardPage = () => {

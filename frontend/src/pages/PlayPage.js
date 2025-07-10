@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { useGameContext } from '../contexts/GameContext';
 import Target from '../components/common/Target';
 import { submitScore } from '../services/api';
-import Loader from '../components/Loader';
+import Loader from '../components/common/Loader';
 
 const PlayPage = () => {
   // Game state management
@@ -26,6 +26,7 @@ const PlayPage = () => {
   const gameAreaRef = useRef(null);
   const intervalRef = useRef(null);
   const totalClicks = useRef(0);
+  const wsRef = useRef(null);
   
   // Navigation and context
   const navigate = useNavigate();
@@ -108,6 +109,89 @@ const PlayPage = () => {
     setTargets(newTargets);
   };
   
+  // WebSocket connection setup with handshake
+  const setupWebSocket = () => {
+    try {
+      // Replace with your WebSocket URL
+      const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:5000';
+      wsRef.current = new WebSocket(wsUrl);
+
+      wsRef.current.onopen = () => {
+        console.log('✅ WebSocket connected');
+
+        // 🔐 IDENTIFY to backend (handshake)
+        const handshakeMessage = {
+          type: "identify",
+          clientType: "web",
+          sessionId: user?.id || "guest_" + Date.now(),
+          playerName: user?.username || "Guest"
+        };
+
+        wsRef.current.send(JSON.stringify(handshakeMessage));
+        console.log("📤 Sent handshake message:", handshakeMessage);
+      };
+
+      wsRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('📥 WebSocket message received:', data);
+
+          // Score sync (from NodeMCU)
+          if (data.type === 'count' && data.count !== undefined) {
+            setScore(data.count);
+          }
+
+          // NodeMCU hit event
+          if (data.type === 'hit' && data.value === 'HIT') {
+            console.log('🎯 HIT detected from NodeMCU');
+            setScore(prev => prev + 1);
+
+            // Show hit animation at center
+            if (gameAreaRef.current) {
+              const rect = gameAreaRef.current.getBoundingClientRect();
+              const centerX = rect.width / 2;
+              const centerY = rect.height / 2;
+
+              setHitPositions(prev => [...prev, { x: centerX, y: centerY, id: Date.now() }]);
+              setTimeout(generateTargets, 100);
+            }
+          }
+
+          // Optional: hit from frontend (with coordinates)
+          if (data.type === 'hit' && data.position) {
+            setHitPositions(prev => [...prev, { 
+              x: data.position.x, 
+              y: data.position.y, 
+              id: Date.now() 
+            }]);
+          }
+
+        } catch (error) {
+          console.error('❌ Error parsing WebSocket message:', error);
+        }
+      };
+
+      wsRef.current.onclose = () => {
+        console.log('⚠️ WebSocket disconnected');
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error('🚫 WebSocket error:', error);
+      };
+
+    } catch (error) {
+      console.error('❌ Failed to setup WebSocket:', error);
+    }
+  };
+  
+  // Close WebSocket connection
+  const closeWebSocket = () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+  };
+  
   // Start the game
   const startGame = () => {
     setGameState('playing');
@@ -116,6 +200,9 @@ const PlayPage = () => {
     totalClicks.current = 0;
     setHitPositions([]);
     generateTargets();
+    
+    // Setup WebSocket connection
+    setupWebSocket();
     
     // Start the timer
     intervalRef.current = setInterval(() => {
@@ -155,6 +242,9 @@ const PlayPage = () => {
   const endGame = () => {
     clearInterval(intervalRef.current);
     setGameState('finished');
+    
+    // Close WebSocket connection
+    closeWebSocket();
     
     // Calculate final stats
     const accuracy = totalClicks.current > 0 
@@ -213,6 +303,15 @@ const PlayPage = () => {
     // Track total clicks for accuracy calculation
     totalClicks.current += 1;
     
+    // Send click data to WebSocket if connected
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'click',
+        position: { x, y },
+        timestamp: Date.now()
+      }));
+    }
+    
     // Check if click hit any target
     let hit = false;
     targets.forEach(target => {
@@ -225,10 +324,20 @@ const PlayPage = () => {
       // If distance is less than target radius, it's a hit
       if (distance <= target.size / 2) {
         hit = true;
+        
+        // Send hit data to WebSocket
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: 'hit',
+            position: { x, y },
+            targetId: target.id,
+            timestamp: Date.now()
+          }));
+        }
+        
         // Add hit animation
         setHitPositions(prev => [...prev, { x, y, id: Date.now() }]);
-        // Increase score
-        setScore(prev => prev + 1);
+        // Note: Score is now updated from WebSocket, not locally
       }
     });
     
@@ -246,6 +355,7 @@ const PlayPage = () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      closeWebSocket();
     };
   }, []);
   
@@ -314,7 +424,7 @@ const PlayPage = () => {
         <GameArea 
           ref={gameAreaRef} 
           onClick={handleGameAreaClick}
-          active={gameState === 'playing'}
+          $active={gameState === 'playing'}
         >
           {/* Targets */}
           {targets.map(target => (
@@ -402,7 +512,7 @@ const GameArea = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
-  cursor: ${props => props.active ? 'crosshair' : 'default'};
+  cursor: ${props => props.$active ? 'crosshair' : 'default'};
   background: #2c3e50;
 `;
 
