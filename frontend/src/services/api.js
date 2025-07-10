@@ -87,3 +87,58 @@ export const fetchPlayerProgress = async (userId) => {
 export const fetchGameSettings = async (mode) => {
   return apiRequest(`/game/settings/${mode}`);
 };
+
+/**
+ * Game Control API methods
+ */
+
+/**
+ * Start a game
+ * @param {Object} gameConfig - Game configuration
+ * @returns {Promise<Object>} Response data
+ */
+export const startGame = async (gameConfig) => {
+  return apiRequest('/game/control/start', 'POST', gameConfig);
+};
+
+/**
+ * Stop the current game
+ * @returns {Promise<Object>} Response data
+ */
+export const stopGame = async () => {
+  return apiRequest('/game/control/stop', 'POST');
+};
+
+/**
+ * Reset the game
+ * @returns {Promise<Object>} Response data
+ */
+export const resetGame = async () => {
+  return apiRequest('/game/control/reset', 'POST');
+};
+
+/**
+ * Send custom command to device
+ * @param {string} command - Command name
+ * @param {Object} data - Command data
+ * @returns {Promise<Object>} Response data
+ */
+export const sendCommand = async (command, data = {}) => {
+  return apiRequest('/game/control/command', 'POST', { command, data });
+};
+
+/**
+ * Test WebSocket connection
+ * @returns {Promise<Object>} Response data
+ */
+export const testConnection = async () => {
+  return apiRequest('/game/control/test');
+};
+
+/**
+ * Get WebSocket connection status
+ * @returns {Promise<Object>} Response data
+ */
+export const getConnectionStatus = async () => {
+  return apiRequest('/game/control/status');
+};

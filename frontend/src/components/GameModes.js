@@ -1,24 +1,5 @@
-import React from 'react';
-import styled from 'styled-components';
-import { useNavigate } from 'react-router-dom';
+// Removed duplicate GameModes component. Use pages/GameModesPage.js instead.
 
-const GameModes = () => {
-  const navigate = useNavigate();
-
-  return (
-    <GameModesWrapper>
-      <Overlay>
-        <h1>Game Modes</h1>
-        <ModesContainer>
-          <ModeButton onClick={() => navigate('/register/easy')}>Easy Mode</ModeButton>
-          <ModeButton onClick={() => navigate('/register/medium')}>Medium Mode</ModeButton>
-          <ModeButton onClick={() => navigate('/register/hard')}>Hard Mode</ModeButton>
-        </ModesContainer>
-        <BackButton onClick={() => navigate('/')}>Back</BackButton>
-      </Overlay>
-    </GameModesWrapper>
-  );
-};
 
 const GameModesWrapper = styled.div`
   position: relative;

@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { useGameContext } from '../contexts/GameContext';
 import Target from '../components/common/Target';
 import { submitScore } from '../services/api';
-import Loader from '../components/Loader';
+import Loader from '../components/common/Loader';
 
 // Constants
 const GAME_CONSTANTS = {
@@ -61,13 +61,16 @@ const PlayPage = () => {
   const timerIntervalRef = useRef(null);
   const targetMoveIntervalRef = useRef(null);
   const totalClicks = useRef(0);
+
   const isMounted = useRef(true);
   const gameStartTime = useRef(null);
-  
+
+  const wsRef = useRef(null);
+
   // Navigation and context
   const navigate = useNavigate();
   const { user, gameMode, gameSettings } = useGameContext();
-<<<<<<< Updated upstream
+
 
   // Memoized game area dimensions
   const gameAreaDimensions = useMemo(() => {
@@ -75,7 +78,7 @@ const PlayPage = () => {
     return gameAreaRef.current.getBoundingClientRect();
   }, [gameState]);
 
-=======
+
   
   // Settings based on game mode
   const settings = useRef({
@@ -85,8 +88,7 @@ const PlayPage = () => {
     targetCount: 1,
     targetColors: ['#27ae60']
   });
-  
->>>>>>> Stashed changes
+
   // Initialize game settings based on game mode
   useEffect(() => {
     const mode = gameMode || 'easy';
@@ -94,7 +96,7 @@ const PlayPage = () => {
     setSettings(newSettings);
     setTimeLeft(newSettings.gameDuration);
   }, [gameMode]);
-<<<<<<< Updated upstream
+
 
   // Cleanup on unmount
   useEffect(() => {
@@ -112,8 +114,7 @@ const PlayPage = () => {
   // Generate random targets with collision detection
   const generateTargets = useCallback(() => {
     if (!gameAreaRef.current || !isMounted.current) return;
-=======
-  
+
   // Set game difficulty based on mode
   const setModeDifficulty = (mode) => {
     switch(mode) {
@@ -144,7 +145,7 @@ const PlayPage = () => {
           targetColors: ['#27ae60']
         };
     }
->>>>>>> Stashed changes
+
     
     const rect = gameAreaRef.current.getBoundingClientRect();
     const { targetCount, targetSize, targetColors } = settings;
@@ -183,10 +184,98 @@ const PlayPage = () => {
       });
     }
     
+
     if (isMounted.current) {
       setTargets(newTargets);
     }
   }, [settings]);
+
+
+    setTargets(newTargets);
+  };
+  
+  // WebSocket connection setup with handshake
+  const setupWebSocket = () => {
+    try {
+      // Replace with your WebSocket URL
+      const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:5000';
+      wsRef.current = new WebSocket(wsUrl);
+
+      wsRef.current.onopen = () => {
+        console.log('✅ WebSocket connected');
+
+        // 🔐 IDENTIFY to backend (handshake)
+        const handshakeMessage = {
+          type: "identify",
+          clientType: "web",
+          sessionId: user?.id || "guest_" + Date.now(),
+          playerName: user?.username || "Guest"
+        };
+
+        wsRef.current.send(JSON.stringify(handshakeMessage));
+        console.log("📤 Sent handshake message:", handshakeMessage);
+      };
+
+      wsRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('📥 WebSocket message received:', data);
+
+          // Score sync (from NodeMCU)
+          if (data.type === 'count' && data.count !== undefined) {
+            setScore(data.count);
+          }
+
+          // NodeMCU hit event
+          if (data.type === 'hit' && data.value === 'HIT') {
+            console.log('🎯 HIT detected from NodeMCU');
+            setScore(prev => prev + 1);
+
+            // Show hit animation at center
+            if (gameAreaRef.current) {
+              const rect = gameAreaRef.current.getBoundingClientRect();
+              const centerX = rect.width / 2;
+              const centerY = rect.height / 2;
+
+              setHitPositions(prev => [...prev, { x: centerX, y: centerY, id: Date.now() }]);
+              setTimeout(generateTargets, 100);
+            }
+          }
+
+          // Optional: hit from frontend (with coordinates)
+          if (data.type === 'hit' && data.position) {
+            setHitPositions(prev => [...prev, { 
+              x: data.position.x, 
+              y: data.position.y, 
+              id: Date.now() 
+            }]);
+          }
+
+        } catch (error) {
+          console.error('❌ Error parsing WebSocket message:', error);
+        }
+      };
+
+      wsRef.current.onclose = () => {
+        console.log('⚠️ WebSocket disconnected');
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error('🚫 WebSocket error:', error);
+      };
+
+    } catch (error) {
+      console.error('❌ Failed to setup WebSocket:', error);
+    }
+  };
+  
+  // Close WebSocket connection
+  const closeWebSocket = () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+  };
 
   // Start the game
   const startGame = useCallback(() => {
@@ -202,6 +291,9 @@ const PlayPage = () => {
     
     // Generate initial targets
     generateTargets();
+    
+    // Setup WebSocket connection
+    setupWebSocket();
     
     // Start the timer
     timerIntervalRef.current = setInterval(() => {
@@ -281,6 +373,9 @@ const PlayPage = () => {
     
     setGameState('finished');
     
+    // Close WebSocket connection
+    closeWebSocket();
+    
     // Calculate final stats
     const finalStats = calculateGameStats(score, totalClicks.current, settings.gameDuration);
     setGameStats(finalStats);
@@ -330,7 +425,20 @@ const PlayPage = () => {
     // Track total clicks for accuracy calculation
     totalClicks.current += 1;
     
+
     // Check if click hit any target using squared distance (more efficient)
+
+    // Send click data to WebSocket if connected
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'click',
+        position: { x, y },
+        timestamp: Date.now()
+      }));
+    }
+    
+    // Check if click hit any target
+
     let hit = false;
     targets.forEach(target => {
       const targetCenterX = target.left + (target.size / 2);
@@ -343,10 +451,20 @@ const PlayPage = () => {
       
       if (distanceSquared <= radiusSquared) {
         hit = true;
+        
+        // Send hit data to WebSocket
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: 'hit',
+            position: { x, y },
+            targetId: target.id,
+            timestamp: Date.now()
+          }));
+        }
+        
         // Add hit animation
         setHitPositions(prev => [...prev, { x, y, id: Date.now() }]);
-        // Increase score
-        setScore(prev => prev + 1);
+        // Note: Score is now updated from WebSocket, not locally
       }
     });
     
@@ -367,10 +485,18 @@ const PlayPage = () => {
 
   // Clean up old animation positions
   useEffect(() => {
+
     const cleanupAnimations = () => {
       const now = Date.now();
       setHitPositions(prev => prev.filter(pos => now - pos.id < 500));
       setMissPositions(prev => prev.filter(pos => now - pos.id < 500));
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      closeWebSocket();
+
     };
     
     const cleanup = setInterval(cleanupAnimations, 1000);
@@ -413,11 +539,10 @@ const PlayPage = () => {
   
   return (
     <PlayPageWrapper>
-<<<<<<< Updated upstream
-=======
+
       {/* Removed GameHeader */}
       {/* Game Container */}
->>>>>>> Stashed changes
+
       <GameContainer>
         {/* Start Screen */}
         {gameState === 'ready' && (
@@ -430,7 +555,7 @@ const PlayPage = () => {
           </StartScreen>
         )}
 
-<<<<<<< Updated upstream
+
         {/* Centered Game Info */}
         {(gameState === 'playing' || gameState === 'paused') && (
           <CenteredGameInfo>
@@ -442,7 +567,7 @@ const PlayPage = () => {
             >
               Time Left: {timeLeft}s
             </TimeDisplay>
-=======
+
         {/* Centered Game Info when playing */}
         {gameState === 'playing' && (
           <CenteredGameInfo>
@@ -458,7 +583,7 @@ const PlayPage = () => {
               <span>Time Left :</span>
               <strong>{timeLeft} s</strong>
             </InfoItem>
->>>>>>> Stashed changes
+
           </CenteredGameInfo>
         )}
         
@@ -466,7 +591,7 @@ const PlayPage = () => {
         <GameArea 
           ref={gameAreaRef} 
           onClick={handleGameAreaClick}
-          active={gameState === 'playing'}
+          $active={gameState === 'playing'}
         >
           {/* Targets */}
           {targets.map(target => (
@@ -541,8 +666,7 @@ const PlayPageWrapper = styled.div`
   overflow: hidden;
 `;
 
-<<<<<<< Updated upstream
-=======
+
 const GameHeader = styled.div`
   display: flex;
   justify-content: space-between;
@@ -564,7 +688,6 @@ const TimeDisplay = styled.div`
   color: #e67e22;
 `;
 
->>>>>>> Stashed changes
 const GameContainer = styled.div`
   position: relative;
   flex: 1;
@@ -576,19 +699,19 @@ const GameArea = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
-  cursor: ${props => props.active ? 'crosshair' : 'default'};
+  cursor: ${props => props.$active ? 'crosshair' : 'default'};
   background: #2c3e50;
 `;
 
 const TargetWrapper = styled.div`
   position: absolute;
-<<<<<<< Updated upstream
+
   transition: all 0.3s ease-out;
   z-index: 1;
-=======
+
   transition: all 0.1s ease-out;
   /* filter: blur(2px); // moved to inline style for dynamic blur */
->>>>>>> Stashed changes
+
 `;
 
 const HitAnimation = styled.div`
@@ -844,9 +967,9 @@ const LoadingOverlay = styled.div`
   }
 `;
 
-<<<<<<< Updated upstream
+
 export default PlayPage;
-=======
+
 const CenteredGameInfo = styled.div`
   position: absolute;
   top: 50%;
@@ -890,4 +1013,4 @@ export default PlayPage;
 `;
 
 export default PlayPage;
->>>>>>> Stashed changes
+

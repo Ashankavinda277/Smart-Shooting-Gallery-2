@@ -35,4 +35,4 @@ const gameSettingsSchema = new mongoose.Schema({
   timestamps: true
 });
 
-module.exports = mongoose.model('GameSettings', gameSettingsSchema);
+module.exports = mongoose.models.GameSettings || mongoose.model('GameSettings', gameSettingsSchema);
