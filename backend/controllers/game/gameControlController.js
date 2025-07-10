@@ -42,7 +42,7 @@ const startGame = async (req, res) => {
 
 // Stop game command
 const stopGame = async (req, res) => {
-  try {
+  try { 
     const gameStopCommand = {
       type: 'game_stop',
       timestamp: Date.now()
