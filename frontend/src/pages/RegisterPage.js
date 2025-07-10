@@ -1,36 +1,51 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
-import { useNavigate, useParams } from 'react-router-dom';
-import Target from '../components/common/Target';
-import Button from '../components/common/Button';
-import SignInForm from './SignInForm';
-import SignUpForm from './SignUpForm';
-import { registerUser, loginUser } from '../services/api';
-import { useGameContext } from '../contexts/GameContext';
+/** @format */
+
+import React, { useState } from "react";
+import styled from "styled-components";
+import { useNavigate } from "react-router-dom";
+import Target from "../components/common/Target";
+import Button from "../components/common/Button";
+import SignInForm from "./SignInForm";
+import SignUpForm from "./SignUpForm";
+import { registerUser, loginUser } from "../services/api";
+import { useGameContext } from "../contexts/GameContext";
 
 const RegisterPage = () => {
   const [isSignUp, setIsSignUp] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { mode } = useParams();
-  const { setUser, setGameMode } = useGameContext();
+  const { setUser } = useGameContext();
 
   const handleSignUp = async ({ username, age, password }) => {
     setIsLoading(true);
-    setError('');
+    setError("");
     try {
-      const response = await registerUser(username, parseInt(age), mode, password);
+      const response = await registerUser(
+        username,
+        parseInt(age),
+        "easy",
+        password
+      );
       if (response.ok) {
         setUser(response.user);
-        setGameMode(mode);
-        navigate('/final-page');
+        navigate("/game-modes");
       } else {
-        setError(response.error || 'Registration failed');
+        // Check if it's a duplicate username error
+        if (response.error && response.error.includes("already exists")) {
+          setError(`${response.error} Would you like to sign in instead?`);
+          // Optionally, you could auto-switch to sign-in after a delay
+          setTimeout(() => {
+            setIsSignUp(false);
+            setError("");
+          }, 3000);
+        } else {
+          setError(response.error || "Registration failed");
+        }
       }
     } catch (err) {
-      console.error('Sign Up error:', err);
-      setError('Server connection error. Please try again.');
+      console.error("Sign Up error:", err);
+      setError("Server connection error. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -38,19 +53,18 @@ const RegisterPage = () => {
 
   const handleSignIn = async ({ username, password }) => {
     setIsLoading(true);
-    setError('');
+    setError("");
     try {
       const response = await loginUser(username, password);
       if (response.ok) {
         setUser(response.user);
-        setGameMode(mode);
-        navigate('/final-page');
+        navigate("/game-modes");
       } else {
-        setError(response.error || 'Login failed');
+        setError(response.error || "Login failed");
       }
     } catch (err) {
-      console.error('Sign In error:', err);
-      setError('Server connection error. Please try again.');
+      console.error("Sign In error:", err);
+      setError("Server connection error. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -59,34 +73,53 @@ const RegisterPage = () => {
   return (
     <RegisterWrapper>
       <Overlay>
-        <h2>{isSignUp ? 'Sign Up' : 'Sign In'}</h2>
-        <h3>Selected Mode: {mode}</h3>
+        <h2>{isSignUp ? "Sign Up" : "Sign In"}</h2>
+        <h3>Welcome to Smart Shooting Gallery!</h3>
 
         <ToggleButtonWrapper>
-          <ToggleButton active={isSignUp} onClick={() => setIsSignUp(true)} disabled={isLoading}>
+          <ToggleButton
+            active={isSignUp}
+            onClick={() => {
+              setIsSignUp(true);
+              setError("");
+            }}
+            disabled={isLoading}
+          >
             Sign Up
           </ToggleButton>
-          <ToggleButton active={!isSignUp} onClick={() => setIsSignUp(false)} disabled={isLoading}>
+          <ToggleButton
+            active={!isSignUp}
+            onClick={() => {
+              setIsSignUp(false);
+              setError("");
+            }}
+            disabled={isLoading}
+          >
             Sign In
           </ToggleButton>
         </ToggleButtonWrapper>
 
-        {error && <ErrorMessage>{error}</ErrorMessage>}
-
         {isSignUp ? (
-          <SignUpForm onSubmit={handleSignUp} isLoading={isLoading} />
+          <SignUpForm
+            onSubmit={handleSignUp}
+            isLoading={isLoading}
+            error={error}
+          />
         ) : (
-          <SignInForm onSubmit={handleSignIn} isLoading={isLoading} />
+          <>
+            {error && <ErrorMessage>{error}</ErrorMessage>}
+            <SignInForm onSubmit={handleSignIn} isLoading={isLoading} />
+          </>
         )}
 
         <Button
-          variant="outline"
-          type="button"
-          onClick={() => navigate('/game-modes')}
+          variant='outline'
+          type='button'
+          onClick={() => navigate("/")}
           disabled={isLoading}
           fullWidth
         >
-          Back
+          Back to Home
         </Button>
       </Overlay>
 
@@ -158,13 +191,13 @@ const ToggleButton = styled.button`
   font-size: 1rem;
   border: 2px solid white;
   border-radius: 30px;
-  background: ${({ active }) => (active ? 'white' : 'transparent')};
-  color: ${({ active }) => (active ? '#4a148c' : 'white')};
+  background: ${({ active }) => (active ? "white" : "transparent")};
+  color: ${({ active }) => (active ? "#4a148c" : "white")};
   cursor: pointer;
   transition: all 0.3s ease;
 
   &:hover {
-    background: ${({ active }) => (active ? 'white' : 'rgba(255,255,255,0.2)')};
+    background: ${({ active }) => (active ? "white" : "rgba(255,255,255,0.2)")};
   }
 
   &:disabled {
