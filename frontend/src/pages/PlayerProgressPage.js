@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { fetchPlayerProgress } from '../services/api';
 import { useGameContext } from '../contexts/GameContext';
 import { useWebSocket } from '../contexts/WebSocketContext';
-import Loader from '../components/Loader';
+import Loader from '../components/common/Loader';
 
 const PlayerProgressPage = () => {
   const [progressData, setProgressData] = useState({
