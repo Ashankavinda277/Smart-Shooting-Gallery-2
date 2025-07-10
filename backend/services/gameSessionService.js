@@ -1,6 +1,6 @@
 const GameSession = require('../models/game/GameSession');
 const Score = require('../models/game/Score');
-const User = require('../models/user');
+const User = require('../models/User');
 const { v4: uuidv4 } = require('uuid');
 
 class GameSessionService {

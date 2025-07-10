@@ -1,42 +1,4 @@
-import React from 'react';
-import styled from 'styled-components';
-import { useNavigate } from 'react-router-dom';
-import Loader from './Loader';
-
-const FinalPage = () => {
-  const navigate = useNavigate();
-
-  return (
-    <FinalPageWrapper>
-      <Header>WELCOME TO THE GAME</Header>
-      <ContentWrapper>
-        <Overlay>
-          <ButtonContainer>
-            <Button onClick={() => navigate('/play')}>Play Now</Button>
-            <Button onClick={() => navigate('/leaderboard')}>Leader Board</Button>
-            <Button onClick={() => navigate('/progress')}>Player Progress</Button>
-          </ButtonContainer>
-        </Overlay>
-        <LoaderWrapper>
-          <StyledLoader />
-        </LoaderWrapper>
-      </ContentWrapper>
-    </FinalPageWrapper>
-  );
-};
-
-const FinalPageWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  width: 100vw;
-  height: 100vh;
-  background: url('https://c4.wallpaperflare.com/wallpaper/229/473/231/religion-jesus-christ-cross-flower-of-life-wallpaper-preview.jpg') no-repeat center center;
-  background-size: cover;
-  text-align: center;
-  color: white;
-`;
+// Removed duplicate FinalPage component. Use pages/FinalPage.js instead.
 
 const Header = styled.h2`
   font-size: 4rem;

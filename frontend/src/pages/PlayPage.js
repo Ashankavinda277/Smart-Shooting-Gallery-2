@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { useGameContext } from '../contexts/GameContext';
 import Target from '../components/common/Target';
 import { submitScore } from '../services/api';
-import Loader from '../components/Loader';
+import Loader from '../components/common/Loader';
 
 const PlayPage = () => {
   // Game state management
