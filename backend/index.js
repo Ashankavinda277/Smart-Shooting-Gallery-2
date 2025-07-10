@@ -41,5 +41,7 @@ app.use('/api', routes);
 // Apply error handling middleware
 app.use(errorHandler);
 
+const PORT = process.env.PORT || 5001; // changed from 5000 to 5001
+
 // Start the server
-server.listen(port, () => console.log(`Server running on port ${port}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

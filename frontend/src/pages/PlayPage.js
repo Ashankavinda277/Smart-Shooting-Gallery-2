@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { useGameContext } from '../contexts/GameContext';
@@ -6,15 +6,49 @@ import Target from '../components/common/Target';
 import { submitScore } from '../services/api';
 import Loader from '../components/common/Loader';
 
+// Constants
+const GAME_CONSTANTS = {
+  HIT_ANIMATION_DELAY: 100,
+  TARGET_SPAWN_DELAY: 100,
+  TIMER_INTERVAL: 1000,
+  RED_TIME_THRESHOLD: 10,
+  BLINK_TIME_THRESHOLD: 5
+};
+
+const DIFFICULTY_SETTINGS = {
+  easy: {
+    gameDuration: 90,
+    targetSpeed: 1500,
+    targetSize: 80,
+    targetCount: 1,
+    targetColors: ['#27ae60']
+  },
+  medium: {
+    gameDuration: 60,
+    targetSpeed: 1200,
+    targetSize: 70,
+    targetCount: 2,
+    targetColors: ['#2ecc71', '#e67e22']
+  },
+  hard: {
+    gameDuration: 45,
+    targetSpeed: 800,
+    targetSize: 60,
+    targetCount: 3,
+    targetColors: ['#e74c3c', '#3498db', '#e67e22']
+  }
+};
+
 const PlayPage = () => {
   // Game state management
   const [gameState, setGameState] = useState('ready'); // ready, playing, paused, finished
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [targetPosition, setTargetPosition] = useState({ left: 50, top: 50 });
   const [targets, setTargets] = useState([]);
   const [hitPositions, setHitPositions] = useState([]);
+  const [missPositions, setMissPositions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [settings, setSettings] = useState(DIFFICULTY_SETTINGS.easy);
   const [gameStats, setGameStats] = useState({
     accuracy: 0,
     hitsPerSecond: 0,
@@ -24,33 +58,63 @@ const PlayPage = () => {
 
   // References
   const gameAreaRef = useRef(null);
-  const intervalRef = useRef(null);
+  const timerIntervalRef = useRef(null);
+  const targetMoveIntervalRef = useRef(null);
   const totalClicks = useRef(0);
+
+  const isMounted = useRef(true);
+  const gameStartTime = useRef(null);
+
   const wsRef = useRef(null);
-  
+
   // Navigation and context
   const navigate = useNavigate();
   const { user, gameMode, gameSettings } = useGameContext();
+
+
+  // Memoized game area dimensions
+  const gameAreaDimensions = useMemo(() => {
+    if (!gameAreaRef.current) return { width: 0, height: 0 };
+    return gameAreaRef.current.getBoundingClientRect();
+  }, [gameState]);
+
+
   
   // Settings based on game mode
   const settings = useRef({
     gameDuration: 60, // default - will be updated based on game mode
     targetSpeed: 1500,
-    targetSize: 80,
+    targetSize: 40, // reduced size
     targetCount: 1,
     targetColors: ['#27ae60']
   });
-  
+
   // Initialize game settings based on game mode
   useEffect(() => {
-    if (!gameMode) {
-      // Default to easy if no mode is set
-      setModeDifficulty('easy');
-    } else {
-      setModeDifficulty(gameMode);
-    }
+    const mode = gameMode || 'easy';
+    const newSettings = DIFFICULTY_SETTINGS[mode] || DIFFICULTY_SETTINGS.easy;
+    setSettings(newSettings);
+    setTimeLeft(newSettings.gameDuration);
   }, [gameMode]);
-  
+
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+      if (targetMoveIntervalRef.current) {
+        clearInterval(targetMoveIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Generate random targets with collision detection
+  const generateTargets = useCallback(() => {
+    if (!gameAreaRef.current || !isMounted.current) return;
+
   // Set game difficulty based on mode
   const setModeDifficulty = (mode) => {
     switch(mode) {
@@ -58,7 +122,7 @@ const PlayPage = () => {
         settings.current = {
           gameDuration: 45,
           targetSpeed: 800,
-          targetSize: 60,
+          targetSize: 30, // reduced size
           targetCount: 3,
           targetColors: ['#e74c3c', '#3498db', '#e67e22']
         };
@@ -67,7 +131,7 @@ const PlayPage = () => {
         settings.current = {
           gameDuration: 60,
           targetSpeed: 1200,
-          targetSize: 70,
+          targetSize: 35, // reduced size
           targetCount: 2,
           targetColors: ['#2ecc71', '#e67e22']
         };
@@ -76,36 +140,57 @@ const PlayPage = () => {
         settings.current = {
           gameDuration: 90,
           targetSpeed: 1500,
-          targetSize: 80,
+          targetSize: 40, // reduced size
           targetCount: 1,
           targetColors: ['#27ae60']
         };
     }
+
     
-    setTimeLeft(settings.current.gameDuration);
-  };
-  
-  // Generate random targets
-  const generateTargets = () => {
-    if (!gameAreaRef.current) return;
-    
-    const { width, height } = gameAreaRef.current.getBoundingClientRect();
-    const { targetCount, targetSize, targetColors } = settings.current;
+    const rect = gameAreaRef.current.getBoundingClientRect();
+    const { targetCount, targetSize, targetColors } = settings;
     
     const newTargets = [];
+    const minDistance = targetSize + 10; // Minimum distance between targets
+    
     for (let i = 0; i < targetCount; i++) {
-      const left = Math.random() * (width - targetSize);
-      const top = Math.random() * (height - targetSize);
+      let attempts = 0;
+      let validPosition = false;
+      let left, top;
+      
+      // Try to find a valid position (avoid overlapping)
+      while (!validPosition && attempts < 20) {
+        left = Math.random() * (rect.width - targetSize);
+        top = Math.random() * (rect.height - targetSize);
+        
+        // Check distance from existing targets
+        validPosition = newTargets.every(target => {
+          const distance = Math.sqrt(
+            Math.pow(left - target.left, 2) + Math.pow(top - target.top, 2)
+          );
+          return distance >= minDistance;
+        });
+        
+        attempts++;
+      }
       
       newTargets.push({
         id: `target-${Date.now()}-${i}`,
-        left,
-        top,
+        left: left || Math.random() * (rect.width - targetSize),
+        top: top || Math.random() * (rect.height - targetSize),
         color: targetColors[i % targetColors.length],
-        size: targetSize
+        size: targetSize,
+        createdAt: Date.now()
       });
     }
     
+
+    if (isMounted.current) {
+      setTargets(newTargets);
+    }
+  }, [settings]);
+
+
     setTargets(newTargets);
   };
   
@@ -191,85 +276,120 @@ const PlayPage = () => {
       wsRef.current = null;
     }
   };
-  
+
   // Start the game
-  const startGame = () => {
+  const startGame = useCallback(() => {
+    if (!isMounted.current) return;
+    
     setGameState('playing');
     setScore(0);
-    setTimeLeft(settings.current.gameDuration);
+    setTimeLeft(settings.gameDuration);
     totalClicks.current = 0;
     setHitPositions([]);
+    setMissPositions([]);
+    gameStartTime.current = Date.now();
+    
+    // Generate initial targets
     generateTargets();
     
     // Setup WebSocket connection
     setupWebSocket();
     
     // Start the timer
-    intervalRef.current = setInterval(() => {
+    timerIntervalRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          clearInterval(intervalRef.current);
-          endGame();
+          clearInterval(timerIntervalRef.current);
+          if (isMounted.current) {
+            endGame();
+          }
           return 0;
         }
         return prev - 1;
       });
-    }, 1000);
-  };
-  
-  // Pause the game
-  const pauseGame = () => {
+    }, GAME_CONSTANTS.TIMER_INTERVAL);
+    
+    // Start target movement
+    targetMoveIntervalRef.current = setInterval(() => {
+      if (isMounted.current) {
+        generateTargets();
+      }
+    }, settings.targetSpeed);
+  }, [settings, generateTargets]);
+
+  // Pause/Resume the game
+  const pauseGame = useCallback(() => {
     if (gameState === 'playing') {
-      clearInterval(intervalRef.current);
+      clearInterval(timerIntervalRef.current);
+      clearInterval(targetMoveIntervalRef.current);
       setGameState('paused');
     } else if (gameState === 'paused') {
-      // Resume game
       setGameState('playing');
-      intervalRef.current = setInterval(() => {
+      
+      // Resume timer
+      timerIntervalRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
-            clearInterval(intervalRef.current);
-            endGame();
+            clearInterval(timerIntervalRef.current);
+            if (isMounted.current) {
+              endGame();
+            }
             return 0;
           }
           return prev - 1;
         });
-      }, 1000);
+      }, GAME_CONSTANTS.TIMER_INTERVAL);
+      
+      // Resume target movement
+      targetMoveIntervalRef.current = setInterval(() => {
+        if (isMounted.current) {
+          generateTargets();
+        }
+      }, settings.targetSpeed);
     }
-  };
-  
+  }, [gameState, settings.targetSpeed, generateTargets]);
+
+  // Calculate game statistics
+  const calculateGameStats = useCallback((finalScore, totalClicksCount, gameDuration) => {
+    const accuracy = totalClicksCount > 0 ? (finalScore / totalClicksCount) * 100 : 0;
+    const timeElapsed = gameDuration - timeLeft;
+    const hitsPerSecond = timeElapsed > 0 ? finalScore / timeElapsed : 0;
+    
+    return {
+      accuracy,
+      hitsPerSecond,
+      totalClicks: totalClicksCount,
+      totalHits: finalScore
+    };
+  }, [timeLeft]);
+
   // End the game
-  const endGame = () => {
-    clearInterval(intervalRef.current);
+  const endGame = useCallback(() => {
+    if (!isMounted.current) return;
+    
+    // Clear all intervals
+    clearInterval(timerIntervalRef.current);
+    clearInterval(targetMoveIntervalRef.current);
+    
     setGameState('finished');
     
     // Close WebSocket connection
     closeWebSocket();
     
     // Calculate final stats
-    const accuracy = totalClicks.current > 0 
-      ? (score / totalClicks.current) * 100 
-      : 0;
-      
-    const hitsPerSecond = (settings.current.gameDuration - timeLeft > 0)
-      ? score / (settings.current.gameDuration - timeLeft)
-      : 0;
-      
-    setGameStats({
-      accuracy,
-      hitsPerSecond,
-      totalClicks: totalClicks.current,
-      totalHits: score
-    });
+    const finalStats = calculateGameStats(score, totalClicks.current, settings.gameDuration);
+    setGameStats(finalStats);
     
     // Submit score if user is authenticated
     if (user?.id) {
-      submitGameScore(score);
+      submitGameScore(score, finalStats);
     }
-  };
-  
+  }, [score, settings.gameDuration, calculateGameStats, user]);
+
   // Submit score to server
-  const submitGameScore = async (finalScore) => {
+  const submitGameScore = useCallback(async (finalScore, stats) => {
+    if (!isMounted.current) return;
+    
     setIsLoading(true);
     
     try {
@@ -278,8 +398,8 @@ const PlayPage = () => {
         username: user.username,
         score: finalScore,
         mode: gameMode || 'easy',
-        accuracy: gameStats.accuracy,
-        duration: settings.current.gameDuration
+        accuracy: stats.accuracy,
+        duration: settings.gameDuration
       });
       
       if (!response.ok) {
@@ -288,13 +408,15 @@ const PlayPage = () => {
     } catch (err) {
       console.error('Score submission error:', err);
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     }
-  };
-  
-  // Handle clicks on the game area
-  const handleGameAreaClick = (e) => {
-    if (gameState !== 'playing') return;
+  }, [user, gameMode, settings.gameDuration]);
+
+  // Handle clicks on the game area with improved hit detection
+  const handleGameAreaClick = useCallback((e) => {
+    if (gameState !== 'playing' || !gameAreaRef.current) return;
     
     const rect = gameAreaRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -303,6 +425,9 @@ const PlayPage = () => {
     // Track total clicks for accuracy calculation
     totalClicks.current += 1;
     
+
+    // Check if click hit any target using squared distance (more efficient)
+
     // Send click data to WebSocket if connected
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
@@ -313,16 +438,18 @@ const PlayPage = () => {
     }
     
     // Check if click hit any target
+
     let hit = false;
     targets.forEach(target => {
       const targetCenterX = target.left + (target.size / 2);
       const targetCenterY = target.top + (target.size / 2);
-      const distance = Math.sqrt(
-        Math.pow(x - targetCenterX, 2) + Math.pow(y - targetCenterY, 2)
-      );
+      const radius = target.size / 2;
       
-      // If distance is less than target radius, it's a hit
-      if (distance <= target.size / 2) {
+      // Use squared distance to avoid Math.sqrt
+      const distanceSquared = Math.pow(x - targetCenterX, 2) + Math.pow(y - targetCenterY, 2);
+      const radiusSquared = radius * radius;
+      
+      if (distanceSquared <= radiusSquared) {
         hit = true;
         
         // Send hit data to WebSocket
@@ -341,35 +468,41 @@ const PlayPage = () => {
       }
     });
     
-    // Generate new targets on hit or every few seconds
+    // Add miss animation if no hit
+    if (!hit) {
+      setMissPositions(prev => [...prev, { x, y, id: Date.now() }]);
+    }
+    
+    // Generate new targets on hit
     if (hit) {
       setTimeout(() => {
-        generateTargets();
-      }, 100);
+        if (isMounted.current) {
+          generateTargets();
+        }
+      }, GAME_CONSTANTS.TARGET_SPAWN_DELAY);
     }
-  };
-  
-  // Clean up on unmount
+  }, [gameState, targets, generateTargets]);
+
+  // Clean up old animation positions
   useEffect(() => {
+
+    const cleanupAnimations = () => {
+      const now = Date.now();
+      setHitPositions(prev => prev.filter(pos => now - pos.id < 500));
+      setMissPositions(prev => prev.filter(pos => now - pos.id < 500));
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
       closeWebSocket();
+
     };
+    
+    const cleanup = setInterval(cleanupAnimations, 1000);
+    return () => clearInterval(cleanup);
   }, []);
-  
-  // Move targets randomly every few seconds if not hit
-  useEffect(() => {
-    if (gameState !== 'playing') return;
-    
-    const moveInterval = setInterval(() => {
-      generateTargets();
-    }, settings.current.targetSpeed);
-    
-    return () => clearInterval(moveInterval);
-  }, [gameState]);
-  
+
   // Game result display
   const renderGameResult = () => {
     return (
@@ -389,9 +522,13 @@ const PlayPage = () => {
               <span>Hits per second:</span>
               <strong>{gameStats.hitsPerSecond.toFixed(2)}</strong>
             </StatItem>
+            <StatItem>
+              <span>Total clicks:</span>
+              <strong>{gameStats.totalClicks}</strong>
+            </StatItem>
           </StatsList>
           <ButtonsContainer>
-            <Button primary onClick={() => startGame()}>Play Again</Button>
+            <Button primary onClick={startGame}>Play Again</Button>
             <Button onClick={() => navigate('/leaderboard')}>View Leaderboard</Button>
             <Button onClick={() => navigate('/final-page')}>Main Menu</Button>
           </ButtonsContainer>
@@ -402,22 +539,52 @@ const PlayPage = () => {
   
   return (
     <PlayPageWrapper>
-      {/* Game Header */}
-      <GameHeader>
-        <div>Mode: <strong>{gameMode || 'Easy'}</strong></div>
-        <ScoreDisplay>Score: {score}</ScoreDisplay>
-        <TimeDisplay>{timeLeft} seconds</TimeDisplay>
-      </GameHeader>
-      
+
+      {/* Removed GameHeader */}
       {/* Game Container */}
+
       <GameContainer>
         {/* Start Screen */}
         {gameState === 'ready' && (
           <StartScreen>
             <h2>Ready to Play?</h2>
             <p>Click targets as quickly as you can!</p>
+            <p>Mode: <strong>{gameMode || 'Easy'}</strong></p>
+            <p>Duration: <strong>{settings.gameDuration}s</strong></p>
             <Button primary onClick={startGame}>Start Game</Button>
           </StartScreen>
+        )}
+
+
+        {/* Centered Game Info */}
+        {(gameState === 'playing' || gameState === 'paused') && (
+          <CenteredGameInfo>
+            <ScoreDisplay>Score: {score}</ScoreDisplay>
+            <ModeDisplay>Mode: {gameMode || 'Easy'}</ModeDisplay>
+            <TimeDisplay 
+              $isRed={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}
+              $shouldBlink={timeLeft <= GAME_CONSTANTS.BLINK_TIME_THRESHOLD}
+            >
+              Time Left: {timeLeft}s
+            </TimeDisplay>
+
+        {/* Centered Game Info when playing */}
+        {gameState === 'playing' && (
+          <CenteredGameInfo>
+            <InfoItem>
+              <span>Score :</span>
+              <strong>{score}</strong>
+            </InfoItem>
+            <InfoItem>
+              <span>Mode :</span>
+              <strong>{gameMode || 'Easy'}</strong>
+            </InfoItem>
+            <InfoItem>
+              <span>Time Left :</span>
+              <strong>{timeLeft} s</strong>
+            </InfoItem>
+
+          </CenteredGameInfo>
         )}
         
         {/* Game Area */}
@@ -435,6 +602,7 @@ const PlayPage = () => {
                 top: `${target.top}px`,
                 width: `${target.size}px`,
                 height: `${target.size}px`,
+                filter: 'blur(2px)' // add blur effect
               }}
             >
               <Target color={target.color} />
@@ -448,6 +616,14 @@ const PlayPage = () => {
               style={{ left: `${hit.x}px`, top: `${hit.y}px` }}
             />
           ))}
+          
+          {/* Miss Animations */}
+          {missPositions.map(miss => (
+            <MissAnimation 
+              key={miss.id} 
+              style={{ left: `${miss.x}px`, top: `${miss.y}px` }}
+            />
+          ))}
         </GameArea>
         
         {/* Pause Button */}
@@ -455,6 +631,14 @@ const PlayPage = () => {
           <PauseButton onClick={pauseGame}>
             {gameState === 'paused' ? 'Resume' : 'Pause'}
           </PauseButton>
+        )}
+        
+        {/* Paused Overlay */}
+        {gameState === 'paused' && (
+          <PausedOverlay>
+            <h2>Game Paused</h2>
+            <Button primary onClick={pauseGame}>Resume Game</Button>
+          </PausedOverlay>
         )}
         
         {/* Game Over Overlay */}
@@ -472,6 +656,7 @@ const PlayPage = () => {
   );
 };
 
+// Styled Components
 const PlayPageWrapper = styled.div`
   display: flex;
   flex-direction: column;
@@ -481,6 +666,7 @@ const PlayPageWrapper = styled.div`
   overflow: hidden;
 `;
 
+
 const GameHeader = styled.div`
   display: flex;
   justify-content: space-between;
@@ -488,6 +674,7 @@ const GameHeader = styled.div`
   padding: 1rem 2rem;
   background: rgba(0, 0, 0, 0.3);
   color: white;
+  min-height: 60px;
 `;
 
 const ScoreDisplay = styled.div`
@@ -518,7 +705,13 @@ const GameArea = styled.div`
 
 const TargetWrapper = styled.div`
   position: absolute;
+
+  transition: all 0.3s ease-out;
+  z-index: 1;
+
   transition: all 0.1s ease-out;
+  /* filter: blur(2px); // moved to inline style for dynamic blur */
+
 `;
 
 const HitAnimation = styled.div`
@@ -526,9 +719,10 @@ const HitAnimation = styled.div`
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(255, 255, 0, 0.7);
+  background: rgba(46, 204, 113, 0.8);
   transform: translate(-50%, -50%);
   animation: hitAnim 0.5s forwards;
+  z-index: 10;
   
   @keyframes hitAnim {
     0% {
@@ -537,6 +731,28 @@ const HitAnimation = styled.div`
     }
     100% {
       transform: translate(-50%, -50%) scale(2);
+      opacity: 0;
+    }
+  }
+`;
+
+const MissAnimation = styled.div`
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: rgba(231, 76, 60, 0.6);
+  transform: translate(-50%, -50%);
+  animation: missAnim 0.3s forwards;
+  z-index: 10;
+  
+  @keyframes missAnim {
+    0% {
+      transform: translate(-50%, -50%) scale(0.3);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1.5);
       opacity: 0;
     }
   }
@@ -564,8 +780,34 @@ const StartScreen = styled.div`
   }
   
   p {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    
+    strong {
+      color: #e74c3c;
+    }
+  }
+`;
+
+const PausedOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 20;
+  color: white;
+  text-align: center;
+  
+  h2 {
+    font-size: 2.5rem;
     margin-bottom: 2rem;
+    color: #f39c12;
   }
 `;
 
@@ -574,15 +816,65 @@ const PauseButton = styled.button`
   top: 20px;
   right: 20px;
   padding: 10px 20px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   color: white;
   border: none;
   border-radius: 5px;
   cursor: pointer;
   z-index: 5;
+  font-size: 1rem;
   
   &:hover {
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.9);
+  }
+`;
+
+// New Centered Game Info Styles
+const CenteredGameInfo = styled.div`
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2rem 3rem;
+  border-radius: 15px;
+  text-align: center;
+  color: white;
+  z-index: 5;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+`;
+
+const ScoreDisplay = styled.div`
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #3498db;
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+`;
+
+const ModeDisplay = styled.div`
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: #e67e22;
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+`;
+
+const TimeDisplay = styled.div`
+  font-size: 3rem;
+  font-weight: bold;
+  color: ${props => props.$isRed ? '#ff3333' : '#2ecc71'};
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  animation: ${props => props.$shouldBlink ? 'blink 0.5s infinite' : 'none'};
+  
+  @keyframes blink {
+    0%, 50% {
+      opacity: 1;
+    }
+    51%, 100% {
+      opacity: 0.3;
+    }
   }
 `;
 
@@ -647,6 +939,7 @@ const Button = styled.button`
   color: white;
   cursor: pointer;
   transition: all 0.2s;
+  font-size: 1rem;
   
   &:hover {
     transform: translateY(-2px);
@@ -674,4 +967,50 @@ const LoadingOverlay = styled.div`
   }
 `;
 
+
 export default PlayPage;
+
+const CenteredGameInfo = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(44, 62, 80, 0.85);
+  padding: 2rem 3rem;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 15;
+  min-width: 300px;
+  gap: 1.5rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+`;
+
+const InfoItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 1.5rem;
+  color: #fff;
+
+  span {
+    font-size: 1.1rem;
+    color: #bdc3c7;
+    margin-bottom: 0.2rem;
+  }
+  strong {
+    font-size: 2.2rem;
+    color: #f39c12;
+  }
+`;
+
+export default PlayPage;
+  strong {
+    font-size: 2.2rem;
+    color: #f39c12;
+  }
+`;
+
+export default PlayPage;
+
