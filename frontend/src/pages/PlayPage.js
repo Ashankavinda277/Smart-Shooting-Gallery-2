@@ -136,29 +136,38 @@ const PlayPage = () => {
           const data = JSON.parse(event.data);
           console.log('📥 WebSocket message received:', data);
 
-          // Score sync (from NodeMCU)
+          // Score sync (from NodeMCU or backend)
           if (data.type === 'count' && data.count !== undefined) {
             setScore(data.count);
           }
 
-          // NodeMCU hit event
+          // NodeMCU hit event (old format)
           if (data.type === 'hit' && data.value === 'HIT') {
             console.log('🎯 HIT detected from NodeMCU');
             setScore(prev => prev + 1);
-
-            // Show hit animation at center
             if (gameAreaRef.current) {
               const rect = gameAreaRef.current.getBoundingClientRect();
               const centerX = rect.width / 2;
               const centerY = rect.height / 2;
+              setHitPositions(prev => [...prev, { x: centerX, y: centerY, id: Date.now() }]);
+              setTimeout(generateTargets, 100);
+            }
+          }
 
+          // NodeMCU hit event (new format from backend)
+          if (data.type === 'target_hit' && data.scoreIncrement) {
+            setScore(prev => prev + data.scoreIncrement);
+            if (gameAreaRef.current) {
+              const rect = gameAreaRef.current.getBoundingClientRect();
+              const centerX = rect.width / 2;
+              const centerY = rect.height / 2;
               setHitPositions(prev => [...prev, { x: centerX, y: centerY, id: Date.now() }]);
               setTimeout(generateTargets, 100);
             }
           }
 
           // Optional: hit from frontend (with coordinates)
-          if (data.type === 'hit' && data.position) {
+          if ((data.type === 'hit' || data.type === 'target_hit') && data.position) {
             setHitPositions(prev => [...prev, { 
               x: data.position.x, 
               y: data.position.y, 
