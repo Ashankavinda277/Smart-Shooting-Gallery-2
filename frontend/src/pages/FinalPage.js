@@ -3,24 +3,30 @@ import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import Loader from '../components/common/Loader';
 
-const FinalPage = () => {
+const FinalPage = ({ onStart }) => {
   const navigate = useNavigate();
 
   return (
     <FinalPageWrapper>
-      <Header>WELCOME TO THE GAME</Header>
+      <Header>🎯 SMART SHOOTING GALLERY 🎯</Header>
       <ContentWrapper>
         <Overlay>
+          <GameLogo>
+            <img src="/logo192.png" alt="Game Logo" />
+          </GameLogo>
+          <WelcomeText>Welcome, Sharpshooter!</WelcomeText>
+          <SubText>Test your aim, climb the leaderboard, and become a legend.</SubText>
           <ButtonContainer>
-            <Button onClick={() => navigate('/play')}>Play Now</Button>
-            <Button onClick={() => navigate('/leaderboard')}>Leader Board</Button>
-            <Button onClick={() => navigate('/progress')}>Player Progress</Button>
+            <StartButton onClick={onStart}>Start Game</StartButton>
+            <MenuButton onClick={() => navigate('/leaderboard')}>Leaderboard</MenuButton>
+            <MenuButton onClick={() => navigate('/progress')}>Player Progress</MenuButton>
           </ButtonContainer>
         </Overlay>
         <LoaderWrapper>
           <StyledLoader />
         </LoaderWrapper>
       </ContentWrapper>
+      <Footer>© {new Date().getFullYear()} Smart Shooting Gallery</Footer>
     </FinalPageWrapper>
   );
 };
@@ -32,16 +38,44 @@ const FinalPageWrapper = styled.div`
   align-items: center;
   width: 100vw;
   height: 100vh;
-  background: url('https://c4.wallpaperflare.com/wallpaper/229/473/231/religion-jesus-christ-cross-flower-of-life-wallpaper-preview.jpg') no-repeat center center;
-  background-size: cover;
+  background: linear-gradient(135deg, #232526 0%, #414345 100%);
   text-align: center;
-  color: white;
+  color: #fff;
+  position: relative;
 `;
 
-const Header = styled.h2`
-  font-size: 4rem;
+const Header = styled.h1`
+  font-size: 3.5rem;
+  margin-top: 2rem;
+  margin-bottom: 1.5rem;
+  color: #ffd700;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 8px #000a;
+`;
+
+const GameLogo = styled.div`
+  margin-bottom: 1.5rem;
+  img {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    box-shadow: 0 4px 24px #0006;
+    background: #fff;
+    object-fit: cover;
+  }
+`;
+
+const WelcomeText = styled.div`
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #27ae60;
+`;
+
+const SubText = styled.div`
+  font-size: 1.2rem;
   margin-bottom: 2rem;
-  color: gold;
+  color: #eee;
 `;
 
 const ContentWrapper = styled.div`
@@ -51,42 +85,69 @@ const ContentWrapper = styled.div`
 `;
 
 const Overlay = styled.div`
-  background: silver; /* Light overlay for better text visibility */
-  padding: 2rem;
-  border-radius: 10px;
+  background: rgba(44, 62, 80, 0.92);
+  padding: 2.5rem 2rem 2rem 2rem;
+  border-radius: 18px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-shadow: 0 8px 32px #0005;
+  min-width: 340px;
 `;
 
 const ButtonContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
+  margin-top: 1.5rem;
 `;
 
-const Button = styled.button`
+const StartButton = styled.button`
   width: 250px;
-  padding: 20px;
-  font-size: 1.5rem;
+  padding: 18px;
+  font-size: 1.4rem;
   border: none;
   border-radius: 10px;
-  background: linear-gradient(to right, #27ae60, #219a52);
-  color: white;
+  background: linear-gradient(90deg, #27ae60 0%, #219a52 100%);
+  color: #fff;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s;
-
+  box-shadow: 0 2px 8px #0003;
+  transition: transform 0.18s, box-shadow 0.18s;
   &:hover {
-    transform: scale(1.05);
+    transform: scale(1.06);
+    box-shadow: 0 4px 16px #27ae6077;
+  }
+`;
+
+const MenuButton = styled(StartButton)`
+  background: linear-gradient(90deg, #34495e 0%, #2c3e50 100%);
+  color: #ffd700;
+  font-weight: 600;
+  &:hover {
+    background: linear-gradient(90deg, #2c3e50 0%, #34495e 100%);
+    color: #fff;
   }
 `;
 
 const LoaderWrapper = styled.div`
-  margin-top: 20px; /* Adjust margin to place it right after the overlay */
+  margin-top: 28px;
 `;
 
 const StyledLoader = styled(Loader)`
-  transform: scale(0.5); /* Reduce the size of the loader */
+  transform: scale(0.5);
+`;
+
+const Footer = styled.footer`
+  position: absolute;
+  bottom: 18px;
+  left: 0;
+  width: 100vw;
+  text-align: center;
+  color: #aaa;
+  font-size: 1rem;
+  letter-spacing: 1px;
+  opacity: 0.8;
 `;
 
 export default FinalPage;
