@@ -67,7 +67,6 @@ const PlayPage = () => {
   // Navigation and context
   const navigate = useNavigate();
   const { user, gameMode, gameSettings } = useGameContext();
-<<<<<<< Updated upstream
 
   // Memoized game area dimensions
   const gameAreaDimensions = useMemo(() => {
@@ -75,18 +74,6 @@ const PlayPage = () => {
     return gameAreaRef.current.getBoundingClientRect();
   }, [gameState]);
 
-=======
-  
-  // Settings based on game mode
-  const settings = useRef({
-    gameDuration: 60, // default - will be updated based on game mode
-    targetSpeed: 1500,
-    targetSize: 40, // reduced size
-    targetCount: 1,
-    targetColors: ['#27ae60']
-  });
-  
->>>>>>> Stashed changes
   // Initialize game settings based on game mode
   useEffect(() => {
     const mode = gameMode || 'easy';
@@ -94,7 +81,6 @@ const PlayPage = () => {
     setSettings(newSettings);
     setTimeLeft(newSettings.gameDuration);
   }, [gameMode]);
-<<<<<<< Updated upstream
 
   // Cleanup on unmount
   useEffect(() => {
@@ -112,39 +98,6 @@ const PlayPage = () => {
   // Generate random targets with collision detection
   const generateTargets = useCallback(() => {
     if (!gameAreaRef.current || !isMounted.current) return;
-=======
-  
-  // Set game difficulty based on mode
-  const setModeDifficulty = (mode) => {
-    switch(mode) {
-      case 'hard':
-        settings.current = {
-          gameDuration: 45,
-          targetSpeed: 800,
-          targetSize: 30, // reduced size
-          targetCount: 3,
-          targetColors: ['#e74c3c', '#3498db', '#e67e22']
-        };
-        break;
-      case 'medium':
-        settings.current = {
-          gameDuration: 60,
-          targetSpeed: 1200,
-          targetSize: 35, // reduced size
-          targetCount: 2,
-          targetColors: ['#2ecc71', '#e67e22']
-        };
-        break;
-      default: // 'easy'
-        settings.current = {
-          gameDuration: 90,
-          targetSpeed: 1500,
-          targetSize: 40, // reduced size
-          targetCount: 1,
-          targetColors: ['#27ae60']
-        };
-    }
->>>>>>> Stashed changes
     
     const rect = gameAreaRef.current.getBoundingClientRect();
     const { targetCount, targetSize, targetColors } = settings;
@@ -413,11 +366,6 @@ const PlayPage = () => {
   
   return (
     <PlayPageWrapper>
-<<<<<<< Updated upstream
-=======
-      {/* Removed GameHeader */}
-      {/* Game Container */}
->>>>>>> Stashed changes
       <GameContainer>
         {/* Start Screen */}
         {gameState === 'ready' && (
@@ -430,7 +378,6 @@ const PlayPage = () => {
           </StartScreen>
         )}
 
-<<<<<<< Updated upstream
         {/* Centered Game Info */}
         {(gameState === 'playing' || gameState === 'paused') && (
           <CenteredGameInfo>
@@ -442,23 +389,6 @@ const PlayPage = () => {
             >
               Time Left: {timeLeft}s
             </TimeDisplay>
-=======
-        {/* Centered Game Info when playing */}
-        {gameState === 'playing' && (
-          <CenteredGameInfo>
-            <InfoItem>
-              <span>Score :</span>
-              <strong>{score}</strong>
-            </InfoItem>
-            <InfoItem>
-              <span>Mode :</span>
-              <strong>{gameMode || 'Easy'}</strong>
-            </InfoItem>
-            <InfoItem>
-              <span>Time Left :</span>
-              <strong>{timeLeft} s</strong>
-            </InfoItem>
->>>>>>> Stashed changes
           </CenteredGameInfo>
         )}
         
@@ -477,7 +407,6 @@ const PlayPage = () => {
                 top: `${target.top}px`,
                 width: `${target.size}px`,
                 height: `${target.size}px`,
-                filter: 'blur(2px)' // add blur effect
               }}
             >
               <Target color={target.color} />
@@ -541,30 +470,6 @@ const PlayPageWrapper = styled.div`
   overflow: hidden;
 `;
 
-<<<<<<< Updated upstream
-=======
-const GameHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2rem;
-  background: rgba(0, 0, 0, 0.3);
-  color: white;
-  min-height: 60px;
-`;
-
-const ScoreDisplay = styled.div`
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #2ecc71;
-`;
-
-const TimeDisplay = styled.div`
-  font-size: 1.2rem;
-  color: #e67e22;
-`;
-
->>>>>>> Stashed changes
 const GameContainer = styled.div`
   position: relative;
   flex: 1;
@@ -582,13 +487,8 @@ const GameArea = styled.div`
 
 const TargetWrapper = styled.div`
   position: absolute;
-<<<<<<< Updated upstream
   transition: all 0.3s ease-out;
   z-index: 1;
-=======
-  transition: all 0.1s ease-out;
-  /* filter: blur(2px); // moved to inline style for dynamic blur */
->>>>>>> Stashed changes
 `;
 
 const HitAnimation = styled.div`
@@ -844,50 +744,4 @@ const LoadingOverlay = styled.div`
   }
 `;
 
-<<<<<<< Updated upstream
 export default PlayPage;
-=======
-const CenteredGameInfo = styled.div`
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(44, 62, 80, 0.85);
-  padding: 2rem 3rem;
-  border-radius: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  z-index: 15;
-  min-width: 300px;
-  gap: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-`;
-
-const InfoItem = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-size: 1.5rem;
-  color: #fff;
-
-  span {
-    font-size: 1.1rem;
-    color: #bdc3c7;
-    margin-bottom: 0.2rem;
-  }
-  strong {
-    font-size: 2.2rem;
-    color: #f39c12;
-  }
-`;
-
-export default PlayPage;
-  strong {
-    font-size: 2.2rem;
-    color: #f39c12;
-  }
-`;
-
-export default PlayPage;
->>>>>>> Stashed changes
