@@ -48,9 +48,6 @@ const apiRequest = async (endpoint, method = 'GET', body = null) => {
  * @param {string} mode - Game mode
  * @returns {Promise<Object>} Registration result
  */
-export const registerUser = async (username, age, mode) => {
-  return apiRequest('/users/register', 'POST', { username, age, mode });
-};
 
 /**
  * Submit game score
@@ -142,3 +139,13 @@ export const testConnection = async () => {
 export const getConnectionStatus = async () => {
   return apiRequest('/game/control/status');
 };
+// User registration
+export const registerUser = async (username, age, mode, password) => {
+  return apiRequest('/users/register', 'POST', { username, age, mode, password });
+};
+
+// User login
+export const loginUser = async (username, password) => {
+  return apiRequest('/users/login', 'POST', { username, password });
+};
+
