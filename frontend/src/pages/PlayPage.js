@@ -109,52 +109,55 @@ const PlayPage = () => {
     setTargets(newTargets);
   };
   
-  // WebSocket connection setup
+  // WebSocket connection setup with handshake
   const setupWebSocket = () => {
     try {
       // Replace with your WebSocket URL
-      const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:8080';
+      const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:5000';
       wsRef.current = new WebSocket(wsUrl);
-      
+
       wsRef.current.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('✅ WebSocket connected');
+
+        // 🔐 IDENTIFY to backend (handshake)
+        const handshakeMessage = {
+          type: "identify",
+          clientType: "web",
+          sessionId: user?.id || "guest_" + Date.now(),
+          playerName: user?.username || "Guest"
+        };
+
+        wsRef.current.send(JSON.stringify(handshakeMessage));
+        console.log("📤 Sent handshake message:", handshakeMessage);
       };
-      
+
       wsRef.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('Received data from WebSocket:', data);
-          
-          // Update score based on count data from WebSocket
+          console.log('📥 WebSocket message received:', data);
+
+          // Score sync (from NodeMCU)
           if (data.type === 'count' && data.count !== undefined) {
             setScore(data.count);
           }
-          
-          // Handle hit messages from NodeMCU
+
+          // NodeMCU hit event
           if (data.type === 'hit' && data.value === 'HIT') {
-            console.log('Hit detected from NodeMCU');
+            console.log('🎯 HIT detected from NodeMCU');
             setScore(prev => prev + 1);
-            
-            // Add hit animation at center of game area
+
+            // Show hit animation at center
             if (gameAreaRef.current) {
               const rect = gameAreaRef.current.getBoundingClientRect();
               const centerX = rect.width / 2;
               const centerY = rect.height / 2;
-              
-              setHitPositions(prev => [...prev, { 
-                x: centerX, 
-                y: centerY, 
-                id: Date.now() 
-              }]);
-              
-              // Generate new targets after hit
-              setTimeout(() => {
-                generateTargets();
-              }, 100);
+
+              setHitPositions(prev => [...prev, { x: centerX, y: centerY, id: Date.now() }]);
+              setTimeout(generateTargets, 100);
             }
           }
-          
-          // Handle other WebSocket messages if needed
+
+          // Optional: hit from frontend (with coordinates)
           if (data.type === 'hit' && data.position) {
             setHitPositions(prev => [...prev, { 
               x: data.position.x, 
@@ -162,20 +165,22 @@ const PlayPage = () => {
               id: Date.now() 
             }]);
           }
+
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          console.error('❌ Error parsing WebSocket message:', error);
         }
       };
-      
+
       wsRef.current.onclose = () => {
-        console.log('WebSocket disconnected');
+        console.log('⚠️ WebSocket disconnected');
       };
-      
+
       wsRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('🚫 WebSocket error:', error);
       };
+
     } catch (error) {
-      console.error('Failed to setup WebSocket:', error);
+      console.error('❌ Failed to setup WebSocket:', error);
     }
   };
   
@@ -419,7 +424,7 @@ const PlayPage = () => {
         <GameArea 
           ref={gameAreaRef} 
           onClick={handleGameAreaClick}
-          active={gameState === 'playing'}
+          $active={gameState === 'playing'}
         >
           {/* Targets */}
           {targets.map(target => (
@@ -507,7 +512,7 @@ const GameArea = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
-  cursor: ${props => props.active ? 'crosshair' : 'default'};
+  cursor: ${props => props.$active ? 'crosshair' : 'default'};
   background: #2c3e50;
 `;
 
