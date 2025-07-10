@@ -65,11 +65,11 @@ const RegisterPage = () => {
               min="1"
               disabled={isLoading}
             />
-          </label>          <Button 
-            variant="primary" 
+          </label>          <Button
+            $variant="primary"
+            $fullWidth
             type="submit" 
             disabled={isLoading} 
-            fullWidth
           >
             {isLoading ? 'Submitting...' : 'Submit'}
           </Button>

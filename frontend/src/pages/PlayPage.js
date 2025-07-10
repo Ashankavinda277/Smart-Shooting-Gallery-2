@@ -149,7 +149,7 @@ const PlayPage = () => {
   // WebSocket connection setup with handshake
   const setupWebSocket = () => {
     try {
-      // Replace with your WebSocket URL
+      // Use import.meta.env for Vite or fallback for other tools
       const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:5000';
       wsRef.current = new WebSocket(wsUrl);
 
@@ -168,6 +168,7 @@ const PlayPage = () => {
         console.log("📤 Sent handshake message:", handshakeMessage);
       };
 
+      // Add support for 'target_hit' and 'hit_registered' WebSocket messages to update score
       wsRef.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
@@ -182,16 +183,26 @@ const PlayPage = () => {
           if (data.type === 'hit' && data.value === 'HIT') {
             console.log('🎯 HIT detected from NodeMCU');
             setScore(prev => prev + 1);
-
             // Show hit animation at center
             if (gameAreaRef.current) {
               const rect = gameAreaRef.current.getBoundingClientRect();
               const centerX = rect.width / 2;
               const centerY = rect.height / 2;
-
               setHitPositions(prev => [...prev, { x: centerX, y: centerY, id: Date.now() }]);
               setTimeout(generateTargets, 100);
             }
+          }
+
+          // Support for backend 'target_hit' message
+          if (data.type === 'target_hit' && typeof data.scoreIncrement === 'number') {
+            setScore(prev => prev + data.scoreIncrement);
+            // Optionally, update accuracy or other stats here
+          }
+
+          // Support for backend 'hit_registered' message
+          if (data.type === 'hit_registered' && data.hitData && typeof data.hitData.scoreIncrement === 'number') {
+            setScore(prev => prev + data.hitData.scoreIncrement);
+            // Optionally, update accuracy or other stats here
           }
 
           // Optional: hit from frontend (with coordinates)
@@ -315,28 +326,9 @@ const PlayPage = () => {
     };
   }, [timeLeft]);
 
-  // End the game
-  const endGame = useCallback(() => {
-    if (!isMounted.current) return;
-    
-    // Clear all intervals
-    clearInterval(timerIntervalRef.current);
-    clearInterval(targetMoveIntervalRef.current);
-    
-    setGameState('finished');
-    
-    // Close WebSocket connection
-    closeWebSocket();
-    
-    // Calculate final stats
-    const finalStats = calculateGameStats(score, totalClicks.current, settings.gameDuration);
-    setGameStats(finalStats);
-    
-    // Submit score if user is authenticated
-    if (user?.id) {
-      submitGameScore(score, finalStats);
-    }
-  }, [score, settings.gameDuration, calculateGameStats, user]);
+
+  // Submit score to server (define before endGame)
+  const { setNeedsRefresh } = useGameContext();
 
   // Submit score to server
   const submitGameScore = useCallback(async (finalScore, stats) => {
@@ -366,6 +358,32 @@ const PlayPage = () => {
     }
   }, [user, gameMode, settings.gameDuration]);
 
+  // End the game
+  const endGame = useCallback(() => {
+    if (!isMounted.current) return;
+
+    // Clear all intervals
+    clearInterval(timerIntervalRef.current);
+    clearInterval(targetMoveIntervalRef.current);
+
+    setGameState('finished');
+
+    // Close WebSocket connection
+    closeWebSocket();
+
+    // Calculate final stats
+    const finalStats = calculateGameStats(score, totalClicks.current, settings.gameDuration);
+    setGameStats(finalStats);
+
+    // Submit score if user is authenticated
+    if (user?.id) {
+      submitGameScore(score, finalStats).then(() => {
+        // Trigger refresh for leaderboard and progress
+        if (setNeedsRefresh) setNeedsRefresh(true);
+      });
+    }
+  }, [score, settings.gameDuration, calculateGameStats, user, setNeedsRefresh, submitGameScore]);
+
   // Handle clicks on the game area with improved hit detection
   const handleGameAreaClick = useCallback((e) => {
     if (gameState !== 'playing' || !gameAreaRef.current) return;
@@ -377,8 +395,6 @@ const PlayPage = () => {
     // Track total clicks for accuracy calculation
     totalClicks.current += 1;
     
-
-    // Check if click hit any target using squared distance (more efficient)
 
     // Send click data to WebSocket if connected
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {

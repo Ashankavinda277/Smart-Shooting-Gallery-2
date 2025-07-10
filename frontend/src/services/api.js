@@ -3,7 +3,7 @@
  * Handles all API requests to the backend
  */
 
-// API base URL from environment or default
+// Use import.meta.env for Vite or fallback for other tools
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
 
 /**

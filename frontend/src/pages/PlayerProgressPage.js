@@ -18,7 +18,7 @@ const PlayerProgressPage = () => {
   const [error, setError] = useState(null);
   const [sensorData, setSensorData] = useState(null);
   const navigate = useNavigate();
-  const { user } = useGameContext();
+  const { user, needsRefresh, setNeedsRefresh } = useGameContext();
   const { isConnected, lastMessage } = useWebSocket();
   
   useEffect(() => {
@@ -35,7 +35,6 @@ const PlayerProgressPage = () => {
         setIsLoading(false);
         return;
       }
-      
       try {
         const response = await fetchPlayerProgress(user.id);
         if (response.ok) {
@@ -54,11 +53,11 @@ const PlayerProgressPage = () => {
         setError('Error connecting to server');
       } finally {
         setIsLoading(false);
+        if (needsRefresh && setNeedsRefresh) setNeedsRefresh(false);
       }
     };
-    
     loadPlayerProgress();
-  }, [user]);
+  }, [user, needsRefresh, setNeedsRefresh]);
 
   // Calculate progress statistics
   const renderStatistics = () => {

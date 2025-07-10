@@ -12,6 +12,7 @@ import styled from 'styled-components';
  * @param {Function} props.onClick - Click handler
  * @param {React.ReactNode} props.children - Button content
  */
+// Use transient props for styled-components to avoid React DOM warnings
 const Button = ({ 
   variant = 'primary', 
   size = 'medium', 
@@ -23,9 +24,9 @@ const Button = ({
 }) => {
   return (
     <StyledButton 
-      variant={variant}
-      size={size}
-      fullWidth={fullWidth}
+      $variant={variant}
+      $size={size}
+      $fullWidth={fullWidth}
       disabled={disabled}
       onClick={onClick}
       {...props}
@@ -121,27 +122,22 @@ const StyledButton = styled.button`
   transition: all 0.2s ease;
   display: inline-block;
   text-align: center;
-  width: ${props => props.fullWidth ? '100%' : 'auto'};
-  
+  width: ${props => props.$fullWidth ? '100%' : 'auto'};
   /* Apply size styles */
-  ${props => getSizeStyles(props.size)}
-  
+  ${props => getSizeStyles(props.$size)}
   /* Apply variant styles */
-  ${props => getVariantStyles(props.variant)}
-  
+  ${props => getVariantStyles(props.$variant)}
   /* Disabled state */
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     filter: grayscale(40%);
   }
-  
   /* Hover transform effect */
   &:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   }
-  
   /* Active state */
   &:active:not(:disabled) {
     transform: translateY(0);
