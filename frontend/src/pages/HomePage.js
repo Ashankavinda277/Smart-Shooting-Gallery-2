@@ -1,20 +1,9 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import Header from '../components/layout/Header';
 import Target from '../components/common/Target';
 import Button from '../components/common/Button';
-
-/** @format */
-
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
-import Header from "../components/layout/Header";
-import Target from "../components/common/Target";
-import Button from "../components/common/Button";
-
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -43,9 +32,9 @@ const HomePage = () => {
       </StatsWrapper>
       <PlayButtonWrapper>
         <StyledButton
-          variant='primary'
-          size='large'
-          onClick={() => navigate("/register")}
+          variant="primary"
+          size="large"
+          onClick={() => navigate('/game-modes')}
         >
           PLAY NOW
         </StyledButton>
@@ -72,7 +61,7 @@ const HomePageWrapper = styled.div`
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(145deg,rgb(76, 92, 92),rgb(14, 15, 15));
+  background: linear-gradient(145deg, #1b1d1f, #0e0f10);
   color: white;
   overflow: hidden;
 `;
@@ -143,14 +132,10 @@ const StyledButton = styled(Button)`
   height: 60px;
   font-size: 24px;
   border-radius: 30px;
-
   transition: all 0.3s ease;
   background-color: #b71c1c !important;
   color: white !important;
   border: none;
-
-  transition: transform 0.3s;
-
 
   &:hover {
     transform: scale(1.05);
