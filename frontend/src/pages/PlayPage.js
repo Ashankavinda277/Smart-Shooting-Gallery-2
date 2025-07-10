@@ -441,10 +441,29 @@ const PlayPage = () => {
     );
   }
 
+  // Show results after game ends
+  if (gameState === 'finished') {
+    return (
+      <GameWrapper>
+        <TopBar>
+          <Score>Final Score: {score}</Score>
+        </TopBar>
+        <div style={{ color: '#fff', marginTop: 32, fontSize: 24, textAlign: 'center' }}>
+          <div>Game Over!</div>
+          <div>Accuracy: {gameStats.accuracy.toFixed(1)}%</div>
+          <div>Hits per Second: {gameStats.hitsPerSecond.toFixed(2)}</div>
+          <div>Total Clicks: {gameStats.totalClicks}</div>
+          <div>Total Hits: {gameStats.totalHits}</div>
+          <button style={{ marginTop: 24, fontSize: 18, padding: '10px 24px', borderRadius: 8, border: 'none', background: '#27ae60', color: '#fff', cursor: 'pointer' }} onClick={() => window.location.reload()}>Play Again</button>
+        </div>
+
+      </GameWrapper>
+    );
+  }
 
 
-  // Optionally, handle other states (paused, finished, etc.)
+  // Optionally, handle other states (paused, etc.)
   return null;
-};
+}
 
 export default PlayPage;
