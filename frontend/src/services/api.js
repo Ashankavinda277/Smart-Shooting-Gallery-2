@@ -1,10 +1,13 @@
 /**
  * API Service Module
  * Handles all API requests to the backend
+ *
+ * @format
  */
 
 // API base URL from environment or default
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL || "http://localhost:5000/api";
 
 /**
  * Make a request to the API
@@ -13,27 +16,28 @@ const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:500
  * @param {Object} body - Request body
  * @returns {Promise<Object>} Response data
  */
-const apiRequest = async (endpoint, method = 'GET', body = null) => {
+const apiRequest = async (endpoint, method = "GET", body = null) => {
   try {
     const headers = {
-      'Content-Type': 'application/json'
+      "Content-Type": "application/json",
     };
-    
+
     const config = {
       method,
-      headers
+      headers,
     };
-    
+
     if (body) {
       config.body = JSON.stringify(body);
     }
-    
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
     const data = await response.json();
-    
+
     return {
       ok: response.ok,
-      ...data
+      error: data.message, // Map backend 'message' to frontend 'error'
+      ...data,
     };
   } catch (error) {
     console.error(`API Error (${endpoint}):`, error);
@@ -48,9 +52,6 @@ const apiRequest = async (endpoint, method = 'GET', body = null) => {
  * @param {string} mode - Game mode
  * @returns {Promise<Object>} Registration result
  */
-export const registerUser = async (username, age, mode) => {
-  return apiRequest('/users/register', 'POST', { username, age, mode });
-};
 
 /**
  * Submit game score
@@ -58,7 +59,7 @@ export const registerUser = async (username, age, mode) => {
  * @returns {Promise<Object>} Score submission result
  */
 export const submitScore = async (scoreData) => {
-  return apiRequest('/game/scores', 'POST', scoreData);
+  return apiRequest("/game/scores", "POST", scoreData);
 };
 
 /**
@@ -66,7 +67,7 @@ export const submitScore = async (scoreData) => {
  * @param {string} mode - Game mode filter (all, easy, medium, hard)
  * @returns {Promise<Object>} Leaderboard data
  */
-export const fetchLeaderboard = async (mode = 'all') => {
+export const fetchLeaderboard = async (mode = "all") => {
   return apiRequest(`/game/scores/leaderboard?mode=${mode}`);
 };
 
@@ -98,7 +99,7 @@ export const fetchGameSettings = async (mode) => {
  * @returns {Promise<Object>} Response data
  */
 export const startGame = async (gameConfig) => {
-  return apiRequest('/game/control/start', 'POST', gameConfig);
+  return apiRequest("/game/control/start", "POST", gameConfig);
 };
 
 /**
@@ -106,7 +107,7 @@ export const startGame = async (gameConfig) => {
  * @returns {Promise<Object>} Response data
  */
 export const stopGame = async () => {
-  return apiRequest('/game/control/stop', 'POST');
+  return apiRequest("/game/control/stop", "POST");
 };
 
 /**
@@ -114,7 +115,7 @@ export const stopGame = async () => {
  * @returns {Promise<Object>} Response data
  */
 export const resetGame = async () => {
-  return apiRequest('/game/control/reset', 'POST');
+  return apiRequest("/game/control/reset", "POST");
 };
 
 /**
@@ -124,7 +125,7 @@ export const resetGame = async () => {
  * @returns {Promise<Object>} Response data
  */
 export const sendCommand = async (command, data = {}) => {
-  return apiRequest('/game/control/command', 'POST', { command, data });
+  return apiRequest("/game/control/command", "POST", { command, data });
 };
 
 /**
@@ -132,7 +133,7 @@ export const sendCommand = async (command, data = {}) => {
  * @returns {Promise<Object>} Response data
  */
 export const testConnection = async () => {
-  return apiRequest('/game/control/test');
+  return apiRequest("/game/control/test");
 };
 
 /**
@@ -140,5 +141,19 @@ export const testConnection = async () => {
  * @returns {Promise<Object>} Response data
  */
 export const getConnectionStatus = async () => {
-  return apiRequest('/game/control/status');
+  return apiRequest("/game/control/status");
+};
+// User registration
+export const registerUser = async (username, age, mode, password) => {
+  return apiRequest("/users/register", "POST", {
+    username,
+    age,
+    mode,
+    password,
+  });
+};
+
+// User login
+export const loginUser = async (username, password) => {
+  return apiRequest("/users/login", "POST", { username, password });
 };
