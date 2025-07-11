@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { fetchPlayerProgress } from '../services/api';
+import { fetchPlayerProgress, fetchUserScores } from '../services/api';
 import { useGameContext } from '../contexts/GameContext';
 import { useWebSocket } from '../contexts/WebSocketContext';
 import Loader from '../components/common/Loader';
@@ -29,22 +29,31 @@ const PlayerProgressPage = () => {
   }, [lastMessage]);
   
   useEffect(() => {
-    const loadPlayerProgress = async () => {
-      if (!user?.username) {
+    const loadUserScores = async () => {
+      if (!user?._id) {
         setError('User not authenticated');
         setIsLoading(false);
         return;
       }
       try {
-        const response = await fetchPlayerProgressByUsername(user.username);
+        const response = await fetchUserScores(user._id);
         if (response.ok) {
-          setProgressData(response.data || {
-            games: [],
-            totalGames: 0,
-            averageScore: 0,
-            highestScore: 0,
-            preferredMode: '',
-          });
+          const scores = response.data?.scores || response.data?.data?.scores || [];          // Group by mode
+          const games = scores.map(s => ({
+            id: s._id,
+            score: s.score,
+            mode: s.gameMode,
+            accuracy: s.accuracy,
+            duration: s.timePlayed,
+            date: s.createdAt
+          }));
+          const totalGames = games.length;
+          const highestScore = games.reduce((max, g) => g.score > max ? g.score : max, 0);
+          const averageScore = totalGames > 0 ? (games.reduce((sum, g) => sum + g.score, 0) / totalGames) : 0;
+          // Find preferred mode (most played)
+          const modeCounts = games.reduce((acc, g) => { acc[g.mode] = (acc[g.mode] || 0) + 1; return acc; }, {});
+          const preferredMode = Object.keys(modeCounts).reduce((a, b) => modeCounts[a] > modeCounts[b] ? a : b, '');
+          setProgressData({ games, totalGames, averageScore, highestScore, preferredMode });
         } else {
           setError(response.error || 'Failed to load progress data');
         }
@@ -56,7 +65,7 @@ const PlayerProgressPage = () => {
         if (needsRefresh && setNeedsRefresh) setNeedsRefresh(false);
       }
     };
-    loadPlayerProgress();
+    loadUserScores();
   }, [user, needsRefresh, setNeedsRefresh]);
 
   // Calculate progress statistics
@@ -152,26 +161,6 @@ const PlayerProgressPage = () => {
           </>
         )}
       </ContentSection>
-      
-      {/* ESP8266 Sensor Data Section */}
-      {isConnected && (
-        <SensorDataSection>
-          <h3>ESP8266 Sensor Data</h3>
-          <p>WebSocket Status: {isConnected ? 'Connected' : 'Disconnected'}</p>
-          {sensorData ? (
-            <SensorDataGrid>
-              {Object.entries(sensorData).map(([key, value]) => (
-                <SensorDataItem key={key}>
-                  <SensorLabel>{key}</SensorLabel>
-                  <SensorValue>{value}</SensorValue>
-                </SensorDataItem>
-              ))}
-            </SensorDataGrid>
-          ) : (
-            <NoDataMessage>Waiting for sensor data...</NoDataMessage>
-          )}
-        </SensorDataSection>
-      )}
       
       <ButtonsSection>
         <Button onClick={() => navigate('/')}>Back to Home</Button>
