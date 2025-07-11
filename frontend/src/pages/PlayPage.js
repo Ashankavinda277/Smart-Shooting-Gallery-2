@@ -252,6 +252,9 @@ const PlayPage = () => {
     setIsLoading(true);
     
     try {
+      // Defensive: handle missing user gracefully
+      const userId = user && user.id ? user.id : null;
+      const username = user && user.username ? user.username : 'Guest';
       const response = await submitScore({
         userId: user.id,
         username: user.username,
@@ -273,7 +276,27 @@ const PlayPage = () => {
     }
   }, [user, gameMode, settings.gameDuration]);
 
-  // Handle clicks on the game area with improved hit detection
+  const endGame = useCallback(() => {
+    if (!isMounted.current) return;
+    clearInterval(timerIntervalRef.current);
+    clearInterval(targetMoveIntervalRef.current);
+    closeWebSocket();
+    setGameState('finished');
+    // Calculate actual time played if quitting early
+    const timePlayed = settings.gameDuration - timeLeft;
+    const finalStats = calculateGameStats(score, totalClicks.current, timePlayed);
+    setGameStats(finalStats);
+    if (!user || !user.id) {
+      alert('You must be logged in to save your score!');
+      localStorage.setItem('leaderboardRefresh', Date.now().toString());
+      return;
+    }
+    submitGameScore(score, finalStats, timePlayed).then(() => {
+      if (setNeedsRefresh) setNeedsRefresh(true);
+      localStorage.setItem('leaderboardRefresh', Date.now().toString());
+    });
+  }, [score, settings.gameDuration, timeLeft, calculateGameStats, user, setNeedsRefresh, submitGameScore]);
+
   const handleGameAreaClick = useCallback((e) => {
     if (gameState !== 'playing' || !gameAreaRef.current) return;
     
@@ -319,430 +342,151 @@ const PlayPage = () => {
     }
   }, [gameState, targets, generateTargets]);
 
-  // Clean up old animation positions
-  useEffect(() => {
-    const cleanupAnimations = () => {
-      const now = Date.now();
-      setHitPositions(prev => prev.filter(pos => now - pos.id < 500));
-      setMissPositions(prev => prev.filter(pos => now - pos.id < 500));
-    };
-    
-    const cleanup = setInterval(cleanupAnimations, 1000);
-    return () => clearInterval(cleanup);
-  }, []);
+  // Show FinalPage after game mode selection, and navigate to PlayPage on Start
+  const [showFinal, setShowFinal] = useState(true);
+  const [finalPageStart, setFinalPageStart] = useState(false);
 
-  // Game result display
-  const renderGameResult = () => {
+  if (showFinal && !finalPageStart) {
+    const FinalPage = React.lazy(() => import('./FinalPage'));
     return (
-      <GameResultOverlay>
-        <ResultContent>
-          <h2>Game Over!</h2>
-          <StatsList>
-            <StatItem>
-              <span>Score:</span>
-              <strong>{score} points</strong>
-            </StatItem>
-            <StatItem>
-              <span>Accuracy:</span>
-              <strong>{gameStats.accuracy.toFixed(1)}%</strong>
-            </StatItem>
-            <StatItem>
-              <span>Hits per second:</span>
-              <strong>{gameStats.hitsPerSecond.toFixed(2)}</strong>
-            </StatItem>
-            <StatItem>
-              <span>Total clicks:</span>
-              <strong>{gameStats.totalClicks}</strong>
-            </StatItem>
-          </StatsList>
-          <ButtonsContainer>
-            <Button primary onClick={startGame}>Play Again</Button>
-            <Button onClick={() => navigate('/leaderboard')}>View Leaderboard</Button>
-            <Button onClick={() => navigate('/final-page')}>Main Menu</Button>
-          </ButtonsContainer>
-        </ResultContent>
-      </GameResultOverlay>
+      <React.Suspense fallback={<div style={{color:'red',fontSize:24}}>Loading game page...</div>}>
+        <FinalPage
+          onStart={() => {
+            setShowFinal(false);
+            setFinalPageStart(true);
+            setTimeout(() => {
+              startGame();
+            }, 0);
+          }}
+          score={score}
+          timeLeft={timeLeft}
+        />
+      </React.Suspense>
     );
-  };
-  
-  return (
-    <PlayPageWrapper>
-      <GameContainer>
-        {/* Start Screen */}
-        {gameState === 'ready' && (
-          <StartScreen>
-            <h2>Ready to Play?</h2>
-            <p>Click targets as quickly as you can!</p>
-            <p>Mode: <strong>{gameMode || 'Easy'}</strong></p>
-            <p>Duration: <strong>{settings.gameDuration}s</strong></p>
-            <Button primary onClick={startGame}>Start Game</Button>
-          </StartScreen>
-        )}
+  }
 
-        {/* Centered Game Info */}
-        {(gameState === 'playing' || gameState === 'paused') && (
-          <CenteredGameInfo>
-            <ScoreDisplay>Score: {score}</ScoreDisplay>
-            <ModeDisplay>Mode: {gameMode || 'Easy'}</ModeDisplay>
-            <TimeDisplay 
-              $isRed={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}
-              $shouldBlink={timeLeft <= GAME_CONSTANTS.BLINK_TIME_THRESHOLD}
-            >
-              Time Left: {timeLeft}s
-            </TimeDisplay>
-          </CenteredGameInfo>
-        )}
-        
-        {/* Game Area */}
-        <GameArea 
-          ref={gameAreaRef} 
-          onClick={handleGameAreaClick}
-          active={gameState === 'playing'}
-        >
-          {/* Targets */}
-          {targets.map(target => (
-            <TargetWrapper 
-              key={target.id}
+  // Show the actual PlayPage game UI (not the placeholder)
+  if (gameState === 'playing') {
+    return (
+      <GameWrapper>
+        <TopBar>
+          <Score>Score: {score}</Score>
+          <Timer $low={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}>{timeLeft}s</Timer>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <button
               style={{
-                left: `${target.left}px`,
-                top: `${target.top}px`,
-                width: `${target.size}px`,
-                height: `${target.size}px`,
+                fontSize: 16,
+                padding: '8px 18px',
+                borderRadius: 8,
+                border: 'none',
+                background: '#f39c12',
+                color: '#fff',
+                cursor: 'pointer',
+                marginRight: 8
+              }}
+              onClick={pauseGame}
+            >
+              Pause
+            </button>
+            <button
+              style={{
+                fontSize: 16,
+                padding: '8px 18px',
+                borderRadius: 8,
+                border: 'none',
+                background: '#e74c3c',
+                color: '#fff',
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                // End game and show results
+                endGame();
               }}
             >
-              <Target color={target.color} />
-            </TargetWrapper>
+              Quit
+            </button>
+          </div>
+        </TopBar>
+        <GameArea ref={gameAreaRef} onClick={handleGameAreaClick}>
+          {targets.map(target => (
+            <Target
+              key={target.id}
+              color={target.color}
+              style={{
+                position: 'absolute',
+                left: target.left,
+                top: target.top,
+                width: target.size,
+                height: target.size
+              }}
+            />
           ))}
-          
-          {/* Hit Animations */}
           {hitPositions.map(hit => (
-            <HitAnimation 
-              key={hit.id} 
-              style={{ left: `${hit.x}px`, top: `${hit.y}px` }}
-            />
+            <HitDot key={hit.id} style={{ left: hit.x, top: hit.y }} />
           ))}
-          
-          {/* Miss Animations */}
           {missPositions.map(miss => (
-            <MissAnimation 
-              key={miss.id} 
-              style={{ left: `${miss.x}px`, top: `${miss.y}px` }}
-            />
+            <MissDot key={miss.id} style={{ left: miss.x, top: miss.y }} />
           ))}
         </GameArea>
-        
-        {/* Pause Button */}
-        {(gameState === 'playing' || gameState === 'paused') && (
-          <PauseButton onClick={pauseGame}>
-            {gameState === 'paused' ? 'Resume' : 'Pause'}
-          </PauseButton>
-        )}
-        
-        {/* Paused Overlay */}
-        {gameState === 'paused' && (
-          <PausedOverlay>
-            <h2>Game Paused</h2>
-            <Button primary onClick={pauseGame}>Resume Game</Button>
-          </PausedOverlay>
-        )}
-        
-        {/* Game Over Overlay */}
-        {gameState === 'finished' && renderGameResult()}
-        
-        {/* Loading Overlay */}
-        {isLoading && (
-          <LoadingOverlay>
-            <Loader />
-            <p>Submitting score...</p>
-          </LoadingOverlay>
-        )}
-      </GameContainer>
-    </PlayPageWrapper>
-  );
-};
-
-// Styled Components
-const PlayPageWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  width: 100vw;
-  height: 100vh;
-  background: #1a1a2e;
-  overflow: hidden;
-`;
-
-const GameContainer = styled.div`
-  position: relative;
-  flex: 1;
-  width: 100%;
-  overflow: hidden;
-`;
-
-const GameArea = styled.div`
-  position: relative;
-  width: 100%;
-  height: 100%;
-  cursor: ${props => props.active ? 'crosshair' : 'default'};
-  background: #2c3e50;
-`;
-
-const TargetWrapper = styled.div`
-  position: absolute;
-  transition: all 0.3s ease-out;
-  z-index: 1;
-`;
-
-const HitAnimation = styled.div`
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: rgba(46, 204, 113, 0.8);
-  transform: translate(-50%, -50%);
-  animation: hitAnim 0.5s forwards;
-  z-index: 10;
-  
-  @keyframes hitAnim {
-    0% {
-      transform: translate(-50%, -50%) scale(0.5);
-      opacity: 1;
-    }
-    100% {
-      transform: translate(-50%, -50%) scale(2);
-      opacity: 0;
-    }
+      </GameWrapper>
+    );
   }
-`;
 
-const MissAnimation = styled.div`
-  position: absolute;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: rgba(231, 76, 60, 0.6);
-  transform: translate(-50%, -50%);
-  animation: missAnim 0.3s forwards;
-  z-index: 10;
-  
-  @keyframes missAnim {
-    0% {
-      transform: translate(-50%, -50%) scale(0.3);
-      opacity: 1;
-    }
-    100% {
-      transform: translate(-50%, -50%) scale(1.5);
-      opacity: 0;
-    }
+  // Show paused UI
+  if (gameState === 'paused') {
+    return (
+      <GameWrapper>
+        <TopBar>
+          <Score>Score: {score}</Score>
+          <Timer $low={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}>{timeLeft}s</Timer>
+        </TopBar>
+        <div style={{ color: '#fff', marginTop: 64, fontSize: 32, textAlign: 'center' }}>
+          <div>Game Paused</div>
+          <button
+            style={{ marginTop: 32, fontSize: 20, padding: '12px 32px', borderRadius: 8, border: 'none', background: '#27ae60', color: '#fff', cursor: 'pointer' }}
+            onClick={pauseGame}
+          >
+            Resume
+          </button>
+          <button
+            style={{ marginTop: 24, marginLeft: 16, fontSize: 18, padding: '10px 24px', borderRadius: 8, border: 'none', background: '#e74c3c', color: '#fff', cursor: 'pointer' }}
+            onClick={endGame}
+          >
+            Quit
+          </button>
+        </div>
+      </GameWrapper>
+    );
   }
-`;
 
-const StartScreen = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.7);
-  z-index: 10;
-  color: white;
-  text-align: center;
-  
-  h2 {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-    color: #3498db;
+  // Show results after game ends
+  if (gameState === 'finished') {
+    return (
+      <GameWrapper>
+        <TopBar>
+          <Score>Final Score: {score}</Score>
+        </TopBar>
+        <div style={{ color: '#fff', marginTop: 32, fontSize: 24, textAlign: 'center' }}>
+          <div>Game Over!</div>
+          <div style={{ margin: '16px 0', fontSize: 22 }}>
+            <b>Player:</b> {user?.username || 'Guest'}<br />
+            <b>Game Mode:</b> {gameMode || 'easy'}<br />
+            <b>Score:</b> {score}
+          </div>
+          <div>Accuracy: {gameStats.accuracy.toFixed(1)}%</div>
+          <div>Hits per Second: {gameStats.hitsPerSecond.toFixed(2)}</div>
+          <div>Total Clicks: {gameStats.totalClicks}</div>
+          <div>Total Hits: {gameStats.totalHits}</div>
+          <button style={{ marginTop: 24, fontSize: 18, padding: '10px 24px', borderRadius: 8, border: 'none', background: '#27ae60', color: '#fff', cursor: 'pointer' }} onClick={() => window.location.reload()}>Play Again</button>
+        </div>
+
+      </GameWrapper>
+    );
   }
-  
-  p {
-    font-size: 1.2rem;
-    margin-bottom: 1rem;
-    
-    strong {
-      color: #e74c3c;
-    }
-  }
-`;
 
-const PausedOverlay = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.8);
-  z-index: 20;
-  color: white;
-  text-align: center;
-  
-  h2 {
-    font-size: 2.5rem;
-    margin-bottom: 2rem;
-    color: #f39c12;
-  }
-`;
 
-const PauseButton = styled.button`
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  padding: 10px 20px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  z-index: 5;
-  font-size: 1rem;
-  
-  &:hover {
-    background: rgba(0, 0, 0, 0.9);
-  }
-`;
-
-// New Centered Game Info Styles
-const CenteredGameInfo = styled.div`
-  position: absolute;
-  top: 15%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.6);
-  padding: 2rem 3rem;
-  border-radius: 15px;
-  text-align: center;
-  color: white;
-  z-index: 5;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-`;
-
-const ScoreDisplay = styled.div`
-  font-size: 2.5rem;
-  font-weight: bold;
-  color: #3498db;
-  margin-bottom: 1rem;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-`;
-
-const ModeDisplay = styled.div`
-  font-size: 1.8rem;
-  font-weight: 600;
-  color: #e67e22;
-  margin-bottom: 1rem;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-`;
-
-const TimeDisplay = styled.div`
-  font-size: 3rem;
-  font-weight: bold;
-  color: ${props => props.$isRed ? '#ff3333' : '#2ecc71'};
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  animation: ${props => props.$shouldBlink ? 'blink 0.5s infinite' : 'none'};
-  
-  @keyframes blink {
-    0%, 50% {
-      opacity: 1;
-    }
-    51%, 100% {
-      opacity: 0.3;
-    }
-  }
-`;
-
-const GameResultOverlay = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: 20;
-`;
-
-const ResultContent = styled.div`
-  background: rgba(44, 62, 80, 0.9);
-  padding: 2rem;
-  border-radius: 10px;
-  text-align: center;
-  color: white;
-  max-width: 500px;
-  
-  h2 {
-    font-size: 2.5rem;
-    margin-bottom: 1.5rem;
-    color: #f39c12;
-  }
-`;
-
-const StatsList = styled.div`
-  margin-bottom: 2rem;
-`;
-
-const StatItem = styled.div`
-  display: flex;
-  justify-content: space-between;
-  padding: 0.8rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  
-  span {
-    color: #bdc3c7;
-  }
-  
-  strong {
-    color: #3498db;
-  }
-`;
-
-const ButtonsContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const Button = styled.button`
-  padding: 0.8rem 1.5rem;
-  border: none;
-  border-radius: 5px;
-  background: ${props => props.primary ? '#27ae60' : '#34495e'};
-  color: white;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 1rem;
-  
-  &:hover {
-    transform: translateY(-2px);
-    background: ${props => props.primary ? '#219a52' : '#2c3e50'};
-  }
-`;
-
-const LoadingOverlay = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.7);
-  z-index: 30;
-  color: white;
-  
-  p {
-    margin-top: 1rem;
-    font-size: 1.2rem;
-  }
-`;
+  // Optionally, handle other states (paused, etc.)
+  return null;
+}
 
 export default PlayPage;

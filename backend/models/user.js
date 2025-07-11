@@ -8,7 +8,6 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: false }, // Made optional for temporary users
     age: { type: Number, required: false }, // Made optional
     password: { type: String, required: false }, // Simple password field
-    mode: { type: String, enum: ["easy", "medium", "hard"], default: "easy" },
   },
   {
     timestamps: true, // Add timestamps for when records are created/updated

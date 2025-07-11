@@ -24,7 +24,6 @@ const RegisterPage = () => {
       const response = await registerUser(
         username,
         parseInt(age),
-        "easy",
         password
       );
       if (response.ok) {
