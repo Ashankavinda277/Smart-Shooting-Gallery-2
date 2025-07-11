@@ -1,11 +1,39 @@
-// Removed duplicate GameModes component. Use pages/GameModesPage.js instead.
+// src/pages/GameModesPage.js
 
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import styled from "styled-components";
+
+const GameModesPage = () => {
+  const navigate = useNavigate();
+
+  const handleSelectMode = (mode) => {
+    // You can save the mode in context, localStorage, or navigate with params
+    console.log("Selected mode:", mode);
+    // For example, navigate to game page with mode param:
+    navigate(`/game?mode=${mode}`);
+  };
+
+  return (
+    <GameModesWrapper>
+      <Overlay>
+        <h1>Select Game Mode</h1>
+        <ModesContainer>
+          <ModeButton onClick={() => handleSelectMode("easy")}>Easy</ModeButton>
+          <ModeButton onClick={() => handleSelectMode("medium")}>Medium</ModeButton>
+          <ModeButton onClick={() => handleSelectMode("hard")}>Hard</ModeButton>
+        </ModesContainer>
+        <BackButton onClick={() => navigate(-1)}>Back</BackButton>
+      </Overlay>
+    </GameModesWrapper>
+  );
+};
 
 const GameModesWrapper = styled.div`
   position: relative;
   width: 100%;
   height: 100vh;
-  background-image: url('https://images.pexels.com/photos/6092077/pexels-photo-6092077.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'); /* Replace with actual image URL */
+  background-image: url('https://images.pexels.com/photos/6092077/pexels-photo-6092077.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1');
   background-size: cover;
   background-position: center;
   display: flex;
@@ -14,11 +42,12 @@ const GameModesWrapper = styled.div`
 `;
 
 const Overlay = styled.div`
-  background: rgb(0, 0, 0); /* Dark overlay for better text visibility */
+  background: rgba(0, 0, 0, 0.7); /* slightly transparent dark overlay */
   padding: 2rem;
   text-align: center;
   color: white;
   border-radius: 10px;
+  min-width: 320px;
 `;
 
 const ModesContainer = styled.div`
@@ -58,4 +87,4 @@ const BackButton = styled.button`
   }
 `;
 
-export default GameModes;
+export default GameModesPage;

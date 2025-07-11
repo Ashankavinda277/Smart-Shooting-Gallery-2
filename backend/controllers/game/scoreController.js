@@ -8,8 +8,9 @@ const { successResponse, errorResponse } = require('../../utils/responseUtil');
  */
 exports.saveScore = async (req, res) => {
   const { user, score, accuracy, gameMode, timePlayed } = req.body;
-  
   try {
+    // Debug log to verify score save request
+    console.log('Attempting to save score:', { user, score, accuracy, gameMode, timePlayed });
     const savedScore = await gameService.saveScore({
       user,
       score,
@@ -17,7 +18,7 @@ exports.saveScore = async (req, res) => {
       gameMode,
       timePlayed
     });
-    
+    console.log('Score saved:', savedScore);
     return successResponse(
       res, 
       201, 
@@ -25,9 +26,10 @@ exports.saveScore = async (req, res) => {
       { score: savedScore }
     );
   } catch (err) {
+    console.error('Error saving score:', err);
     return errorResponse(res, 400, err.message);
   }
-};
+}
 
 /**
  * Get top scores for a specific game mode

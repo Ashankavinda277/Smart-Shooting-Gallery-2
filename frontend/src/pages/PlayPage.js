@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
@@ -5,7 +6,6 @@ import { useGameContext } from '../contexts/GameContext';
 import Target from '../components/common/Target';
 import { submitScore } from '../services/api';
 import Loader from '../components/common/Loader';
-
 
 // Constants
 const GAME_CONSTANTS = {

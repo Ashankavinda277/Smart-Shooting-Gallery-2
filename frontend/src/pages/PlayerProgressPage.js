@@ -30,13 +30,13 @@ const PlayerProgressPage = () => {
   
   useEffect(() => {
     const loadPlayerProgress = async () => {
-      if (!user?.id) {
+      if (!user?.username) {
         setError('User not authenticated');
         setIsLoading(false);
         return;
       }
       try {
-        const response = await fetchPlayerProgress(user.id);
+        const response = await fetchPlayerProgressByUsername(user.username);
         if (response.ok) {
           setProgressData(response.data || {
             games: [],
