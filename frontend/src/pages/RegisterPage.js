@@ -169,7 +169,7 @@ const Overlay = styled.div`
 `;
 
 const TargetWrapper = styled.div`
-  margin-left: 20px;
+  margin-left: 5px;
 `;
 
 const ErrorMessage = styled.div`
