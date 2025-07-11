@@ -17,6 +17,36 @@ const RegisterPage = () => {
   const navigate = useNavigate();
   const { setUser } = useGameContext();
 
+  const handleSignIn = async ({ username, password }) => {
+    console.log("🔁 SignIn Called");
+    setIsLoading(true);
+    setError("");
+    try {
+      const response = await loginUser(username, password);
+      console.log("✅ Response from loginUser:", response);
+
+      let userObj = response.data && (response.data.user || (response.data.data && response.data.data.user));
+      console.log("👤 Extracted userObj:", userObj);
+
+      if (response.ok && userObj && (userObj.id || userObj._id)) {
+        console.log("✅ Conditions passed, calling setUser and navigate");
+        setUser(userObj);
+        setTimeout(() => {
+          console.log("🚀 Navigating to /game-modes");
+          navigate("/game-modes");
+        }, 200);
+      } else {
+        console.warn("❌ Login failed:", response.error || "Unknown");
+        setError(response.error || "Login failed");
+      }
+    } catch (err) {
+      console.error("💥 Login error:", err);
+      setError("Server connection error. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSignUp = async ({ username, age, password }) => {
     setIsLoading(true);
     setError("");
@@ -27,14 +57,15 @@ const RegisterPage = () => {
         "easy",
         password
       );
-      // Always use user from response.data
-      const userObj = response.data && response.data.user;
-      if (response.ok && userObj && userObj.id) {
-        setError(""); // Clear any lingering errors
+      console.log("✅ Response from registerUser:", response);
+      let userObj = response.data && (response.data.user || (response.data.data && response.data.data.user));
+      console.log("👤 Extracted userObj:", userObj);
+      if (response.ok && userObj && (userObj.id || userObj._id)) {
+        setError("");
         setUser(userObj);
-        console.log("Navigating to /game-modes after sign up");
         navigate("/game-modes");
       } else {
+        console.warn("❌ Registration failed:", response.error, response);
         if (response.error && response.error.includes("already exists")) {
           setError(`${response.error} Would you like to sign in instead?`);
           setTimeout(() => {
@@ -42,35 +73,12 @@ const RegisterPage = () => {
             setError("");
           }, 3000);
         } else {
-          setError(response.error || "Registration failed");
+          setError(response.error || JSON.stringify(response) || "Registration failed");
         }
       }
     } catch (err) {
-      console.error("Sign Up error:", err);
-      setError("Server connection error. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSignIn = async ({ username, password }) => {
-    setIsLoading(true);
-    setError("");
-    try {
-      const response = await loginUser(username, password);
-      // Always use user from response.data
-      const userObj = response.data && response.data.user;
-      if (response.ok && userObj && userObj.id) {
-        setError(""); // Clear any lingering errors
-        setUser(userObj);
-        console.log("Navigating to /game-modes after sign in");
-        navigate("/game-modes");
-      } else {
-        setError(response.error || "Login failed");
-      }
-    } catch (err) {
-      console.error("Sign In error:", err);
-      setError("Server connection error. Please try again.");
+      console.error("💥 Sign Up error:", err);
+      setError(err.message || "Server connection error. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +144,6 @@ const RegisterPage = () => {
   );
 };
 
-// Styled components
 const RegisterWrapper = styled.div`
   display: flex;
   justify-content: center;
@@ -204,7 +211,8 @@ const ToggleButton = styled.button`
   transition: all 0.3s ease;
 
   &:hover {
-    background: ${({ $active }) => ($active ? "white" : "rgba(255,255,255,0.2)")};
+    background: ${({ $active }) =>
+      $active ? "white" : "rgba(255,255,255,0.2)"};
   }
 
   &:disabled {

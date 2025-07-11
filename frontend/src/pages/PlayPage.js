@@ -137,7 +137,7 @@ const PlayPage = () => {
   React.useEffect(() => {
     if (!loading && (user === null || user === false)) {
       alert('You must be logged in to play!');
-      navigate('/login');
+      navigate('/register');
     }
   }, [user, loading, navigate]);
 
