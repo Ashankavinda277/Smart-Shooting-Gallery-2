@@ -134,28 +134,31 @@ const RegisterWrapper = styled.div`
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: linear-gradient(135deg, #4a148c, #880e4f);
+  background: linear-gradient(135deg, #0d0d0d, #1a1a2e);
 `;
 
 const Overlay = styled.div`
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(10, 10, 20, 0.85);
   backdrop-filter: blur(12px);
   padding: 3rem;
   text-align: center;
-  color: white;
+  color: #cce7ff;
   border-radius: 16px;
   margin-right: 20px;
   width: 420px;
+  border: 2px solid #00ffe7;
 
   h2 {
     font-size: 2.2rem;
     margin-bottom: 1rem;
+    color: #00ffe7;
   }
 
   h3 {
     font-size: 1.1rem;
     margin-bottom: 1.5rem;
     text-transform: capitalize;
+    color: #cce7ff;
   }
 
   form {
@@ -188,15 +191,18 @@ const ToggleButtonWrapper = styled.div`
 const ToggleButton = styled.button`
   padding: 0.5rem 1.2rem;
   font-size: 1rem;
-  border: 2px solid white;
+  border: 2px solid #00ffe7;
   border-radius: 30px;
-  background: ${({ active }) => (active ? "white" : "transparent")};
-  color: ${({ active }) => (active ? "#4a148c" : "white")};
+  background: ${({ active }) => (active ? "#00ffe7" : "transparent")};
+  color: ${({ active }) => (active ? "#0d0d0d" : "#00ffe7")};
   cursor: pointer;
   transition: all 0.3s ease;
+  box-shadow: ${({ active }) =>
+    active ? "0 0 10px #00ffe7, 0 0 20px #00ffe7" : "none"};
 
   &:hover {
-    background: ${({ active }) => (active ? "white" : "rgba(255,255,255,0.2)")};
+    background: #00ffe740;
+    box-shadow: 0 0 10px #00ffe7, 0 0 20px #00ffe7;
   }
 
   &:disabled {
