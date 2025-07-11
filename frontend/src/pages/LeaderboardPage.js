@@ -19,7 +19,11 @@ const LeaderboardPage = () => {
       try {
         const response = await fetchLeaderboard(activeMode);
         if (response.ok) {
-          setLeaderboardData(response.data || []);
+          // Support both {scores: [...]} and direct array
+       const scores = Array.isArray(response.data)
+  ? response.data
+  : (response.data?.scores || response.data?.data?.scores || []);
+          setLeaderboardData(scores);
         } else {
           setError(response.error || 'Failed to load leaderboard data');
         }
@@ -31,7 +35,18 @@ const LeaderboardPage = () => {
         if (needsRefresh && setNeedsRefresh) setNeedsRefresh(false);
       }
     };
+
+    // Listen for leaderboard refresh trigger from PlayPage
+    const handleStorage = (e) => {
+      if (e.key === 'leaderboardRefresh') {
+        loadLeaderboard();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
     loadLeaderboard();
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+    };
   }, [activeMode, needsRefresh, setNeedsRefresh]);
   
   const handleModeChange = (mode) => {
@@ -91,12 +106,12 @@ const LeaderboardPage = () => {
             <tbody>
               {leaderboardData.length > 0 ? (
                 leaderboardData.map((entry, index) => (
-                  <tr key={entry.id || index}>
+                  <tr key={entry._id || entry.id || index}>
                     <td>{index + 1}</td>
-                    <td>{entry.username}</td>
+                    <td>{entry.user && entry.user.username ? entry.user.username : 'Unknown'}</td>
                     <td>{entry.score}</td>
-                    <td>{entry.mode}</td>
-                    <td>{new Date(entry.date).toLocaleDateString()}</td>
+                    <td>{entry.gameMode}</td>
+                    <td>{entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : ''}</td>
                   </tr>
                 ))
               ) : (

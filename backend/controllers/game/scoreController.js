@@ -7,9 +7,11 @@ const { successResponse, errorResponse } = require('../../utils/responseUtil');
  * @route POST /api/game/scores
  */
 exports.saveScore = async (req, res) => {
+  console.log('Score submission received:', req.body);
   const { user, score, accuracy, gameMode, timePlayed } = req.body;
-  
   try {
+    // Debug log to verify score save request
+    console.log('Attempting to save score:', { user, score, accuracy, gameMode, timePlayed });
     const savedScore = await gameService.saveScore({
       user,
       score,
@@ -17,7 +19,7 @@ exports.saveScore = async (req, res) => {
       gameMode,
       timePlayed
     });
-    
+    console.log('Score saved:', savedScore);
     return successResponse(
       res, 
       201, 
@@ -25,9 +27,10 @@ exports.saveScore = async (req, res) => {
       { score: savedScore }
     );
   } catch (err) {
+    console.error('Error saving score:', err);
     return errorResponse(res, 400, err.message);
   }
-};
+}
 
 /**
  * Get top scores for a specific game mode
@@ -79,7 +82,20 @@ exports.getUserBestScore = async (req, res) => {
     return errorResponse(res, 400, err.message);
   }
 };
-
+/**
+ * Get all scores for a user
+ * @route GET /api/game/scores/user/:userId
+ */
+exports.getAllScoresForUser = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const Score = require('../../models/game/Score');
+    const scores = await Score.find({ user: userId }).sort({ createdAt: -1 });
+    return successResponse(res, 200, 'User scores retrieved successfully', { scores });
+  } catch (err) {
+    return errorResponse(res, 400, err.message);
+  }
+};
 /**
  * Get leaderboard for all or specific mode
  * @route GET /api/game/scores/leaderboard?mode=all|easy|medium|hard
@@ -88,22 +104,41 @@ exports.getLeaderboard = async (req, res) => {
   const mode = req.query.mode || 'all';
   const limit = req.query.limit ? parseInt(req.query.limit) : 10;
   try {
-    let scores;
-    if (mode === 'all') {
-      // Get top scores for all modes
-      scores = await require('../../models/game/Score')
-        .find({})
-        .sort({ score: -1 })
-        .limit(limit)
-        .populate('user', 'username age');
-    } else {
-      // Get top scores for a specific mode
-      scores = await require('../../models/game/Score')
-        .find({ gameMode: mode })
-        .sort({ score: -1 })
-        .limit(limit)
-        .populate('user', 'username age');
+    const Score = require('../../models/game/Score');
+    let match = {};
+    if (mode !== 'all') {
+      match.gameMode = mode;
     }
+    // Aggregate: group by user, get highest score per user (optionally per mode)
+    const pipeline = [
+      { $match: match },
+      { $sort: { score: -1 } },
+      {
+        $group: {
+          _id: '$user',
+          scoreId: { $first: '$_id' },
+          score: { $first: '$score' },
+          accuracy: { $first: '$accuracy' },
+          gameMode: { $first: '$gameMode' },
+          timePlayed: { $first: '$timePlayed' },
+          createdAt: { $first: '$createdAt' },
+          updatedAt: { $first: '$updatedAt' }
+        }
+      },
+      { $sort: { score: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: '$user' }
+    ];
+    const scores = await Score.aggregate(pipeline);
+    console.log('Leaderboard scores:', scores);
     return successResponse(res, 200, 'Leaderboard retrieved successfully', { scores });
   } catch (err) {
     return errorResponse(res, 400, err.message);

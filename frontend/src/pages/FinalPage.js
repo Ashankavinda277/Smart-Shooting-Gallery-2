@@ -3,16 +3,16 @@ import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import Loader from '../components/common/Loader';
 
-const FinalPage = () => {
+const FinalPage = ({ onStart }) => {
   const navigate = useNavigate();
-
+  console.log('FinalPage rendered');
   return (
     <FinalPageWrapper>
       <Header>WELCOME TO THE GAME</Header>
       <ContentWrapper>
         <Overlay>
           <ButtonContainer>
-            <Button onClick={() => navigate('/play')}>Play Now</Button>
+            <Button onClick={onStart}>Play Now</Button>
             <Button onClick={() => navigate('/leaderboard')}>Leader Board</Button>
             <Button onClick={() => navigate('/progress')}>Player Progress</Button>
           </ButtonContainer>

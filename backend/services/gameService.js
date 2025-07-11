@@ -8,10 +8,13 @@ const Score = require('../models/game/Score');
  */
 const saveScore = async (scoreData) => {
   try {
+    console.log('Saving score to DB:', scoreData);
     const score = new Score(scoreData);
     await score.save();
+    console.log('Score successfully saved in DB:', score);
     return score;
   } catch (error) {
+    console.error('Error saving score in DB:', error);
     throw error;
   }
 };

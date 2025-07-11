@@ -41,7 +41,71 @@ const DIFFICULTY_SETTINGS = {
   }
 };
 
+// Styled Components for Game UI (must be defined before use)
+const GameWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #232526 0%, #414345 100%);
+`;
+
+const TopBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100vw;
+  max-width: 900px;
+  padding: 32px 32px 0 32px;
+`;
+
+const Score = styled.div`
+  font-size: 2rem;
+  color: #ffd700;
+  font-weight: 700;
+`;
+
+const Timer = styled.div`
+  font-size: 2rem;
+  color: ${props => props.$low ? '#e74c3c' : '#27ae60'};
+  font-weight: 700;
+`;
+
+const GameArea = styled.div`
+  position: relative;
+  width: 800px;
+  height: 500px;
+  background: #222c;
+  border-radius: 18px;
+  margin-top: 32px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px #0005;
+  cursor: crosshair;
+`;
+
+const HitDot = styled.div`
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(46, 204, 113, 0.8);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+`;
+
+const MissDot = styled.div`
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(231, 76, 60, 0.7);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+`;
+
 const PlayPage = () => {
+  const { user, gameMode, gameSettings, setNeedsRefresh, loading } = useGameContext();
+  // ...existing code...
   const [gameState, setGameState] = useState('ready');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -66,7 +130,23 @@ const PlayPage = () => {
   const wsRef = useRef(null);
 
   const navigate = useNavigate();
+<<<<<<< HEAD
   const { user, gameMode, gameSettings } = useGameContext();
+=======
+  // ...existing code...
+
+
+  // Only redirect if user is explicitly null/false, not undefined (undefined = still loading)
+  React.useEffect(() => {
+    if (!loading && (user === null || user === false)) {
+      alert('You must be logged in to play!');
+      navigate('/register');
+    }
+  }, [user, loading, navigate]);
+
+  // If context is still loading, show loader
+  if (loading) return <Loader />;
+>>>>>>> Ashan-2
 
 
   // Memoized game area dimensions
@@ -357,6 +437,7 @@ const PlayPage = () => {
     };
   }, [timeLeft]);
 
+<<<<<<< HEAD
   // End the game
   const endGame = useCallback(() => {
     if (!isMounted.current) return;
@@ -382,18 +463,24 @@ const PlayPage = () => {
 
   // Submit score to server
   const submitGameScore = useCallback(async (finalScore, stats) => {
+=======
+  const submitGameScore = useCallback(async (finalScore, stats, timePlayedOverride) => {
+>>>>>>> Ashan-2
     if (!isMounted.current) return;
     
     setIsLoading(true);
     
     try {
+      // Defensive: handle missing user gracefully
+      const userId = user && (user.id || user._id) ? (user.id || user._id) : null;
+      const username = user && user.username ? user.username : 'Guest';
       const response = await submitScore({
-        userId: user.id,
-        username: user.username,
+        user: userId,
+        username: username,
         score: finalScore,
-        mode: gameMode || 'easy',
         accuracy: stats.accuracy,
-        duration: settings.gameDuration
+        gameMode: gameMode || 'easy',
+        timePlayed: typeof timePlayedOverride === 'number' ? timePlayedOverride : settings.gameDuration
       });
       
       if (!response.ok) {
@@ -408,7 +495,31 @@ const PlayPage = () => {
     }
   }, [user, gameMode, settings.gameDuration]);
 
+<<<<<<< HEAD
   // Handle clicks on the game area with improved hit detection
+=======
+  const endGame = useCallback(() => {
+    if (!isMounted.current) return;
+    clearInterval(timerIntervalRef.current);
+    clearInterval(targetMoveIntervalRef.current);
+    closeWebSocket();
+    setGameState('finished');
+    // Calculate actual time played if quitting early
+    const timePlayed = settings.gameDuration - timeLeft;
+    const finalStats = calculateGameStats(score, totalClicks.current, timePlayed);
+    setGameStats(finalStats);
+    if (!user || !(user.id || user._id)) {
+      alert('You must be logged in to save your score!');
+      localStorage.setItem('leaderboardRefresh', Date.now().toString());
+      return;
+    }
+    submitGameScore(score, finalStats, timePlayed).then(() => {
+      if (setNeedsRefresh) setNeedsRefresh(true);
+      localStorage.setItem('leaderboardRefresh', Date.now().toString());
+    });
+  }, [score, settings.gameDuration, timeLeft, calculateGameStats, user, setNeedsRefresh, submitGameScore]);
+
+>>>>>>> Ashan-2
   const handleGameAreaClick = useCallback((e) => {
     if (gameState !== 'playing' || !gameAreaRef.current) return;
     
@@ -477,6 +588,7 @@ const PlayPage = () => {
     }
   }, [gameState, targets, generateTargets]);
 
+<<<<<<< HEAD
   // Clean up old animation positions
   useEffect(() => {
 
@@ -647,8 +759,145 @@ const PlayPage = () => {
         )}
       </GameContainer>
     </PlayPageWrapper>
+=======
+  // Show FinalPage after game mode selection, and navigate to PlayPage on Start
+  const [showFinal, setShowFinal] = useState(true);
+  const [finalPageStart, setFinalPageStart] = useState(false);
+  const FinalPage = React.useMemo(() => React.lazy(() => import('./FinalPage')), []);
+
+  // Main render block
+  return (
+    <>
+      {showFinal && !finalPageStart ? (
+        <React.Suspense fallback={<div style={{color:'red',fontSize:24}}>Loading game page...</div>}>
+          <FinalPage
+            onStart={() => {
+              setShowFinal(false);
+              setFinalPageStart(true);
+              setTimeout(() => {
+                startGame();
+              }, 0);
+            }}
+            score={score}
+            timeLeft={timeLeft}
+          />
+        </React.Suspense>
+      ) : gameState === 'playing' ? (
+        <GameWrapper>
+          <TopBar>
+            <Score>Score: {score}</Score>
+            <Timer $low={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}>{timeLeft}s</Timer>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <button
+                style={{
+                  fontSize: 16,
+                  padding: '8px 18px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: '#f39c12',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  marginRight: 8
+                }}
+                onClick={pauseGame}
+              >
+                Pause
+              </button>
+              <button
+                style={{
+                  fontSize: 16,
+                  padding: '8px 18px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: '#e74c3c',
+                  color: '#fff',
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  // End game and show results
+                  endGame();
+                }}
+              >
+                Quit
+              </button>
+            </div>
+          </TopBar>
+          <GameArea ref={gameAreaRef} onClick={handleGameAreaClick}>
+            {targets.map(target => (
+              <Target
+                key={target.id}
+                color={target.color}
+                style={{
+                  position: 'absolute',
+                  left: target.left,
+                  top: target.top,
+                  width: target.size,
+                  height: target.size
+                }}
+              />
+            ))}
+            {hitPositions.map(hit => (
+              <HitDot key={hit.id} style={{ left: hit.x, top: hit.y }} />
+            ))}
+            {missPositions.map(miss => (
+              <MissDot key={miss.id} style={{ left: miss.x, top: miss.y }} />
+            ))}
+          </GameArea>
+        </GameWrapper>
+      ) : gameState === 'paused' ? (
+        <GameWrapper>
+          <TopBar>
+            <Score>Score: {score}</Score>
+            <Timer $low={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}>{timeLeft}s</Timer>
+          </TopBar>
+          <div style={{ color: '#fff', marginTop: 64, fontSize: 32, textAlign: 'center' }}>
+            <div>Game Paused</div>
+            <button
+              style={{ marginTop: 32, fontSize: 20, padding: '12px 32px', borderRadius: 8, border: 'none', background: '#27ae60', color: '#fff', cursor: 'pointer' }}
+              onClick={pauseGame}
+            >
+              Resume
+            </button>
+            <button
+              style={{ marginTop: 24, marginLeft: 16, fontSize: 18, padding: '10px 24px', borderRadius: 8, border: 'none', background: '#e74c3c', color: '#fff', cursor: 'pointer' }}
+              onClick={endGame}
+            >
+              Quit
+            </button>
+          </div>
+        </GameWrapper>
+      ) : gameState === 'finished' ? (
+        <GameWrapper>
+          <TopBar>
+            <Score>Final Score: {score}</Score>
+          </TopBar>
+          <div style={{ color: '#fff', marginTop: 32, fontSize: 24, textAlign: 'center' }}>
+            <div>Game Over!</div>
+            <div style={{ margin: '16px 0', fontSize: 22 }}>
+              <b>Player:</b> {user?.username || 'Guest'}<br />
+              <b>Game Mode:</b> {gameMode || 'easy'}<br />
+              <b>Score:</b> {score}
+            </div>
+            <div>Accuracy: {gameStats.accuracy.toFixed(1)}%</div>
+            <div>Hits per Second: {gameStats.hitsPerSecond.toFixed(2)}</div>
+            <div>Total Hits: {gameStats.totalHits}</div>
+            <button
+              style={{ marginTop: 24, fontSize: 18, padding: '10px 24px', borderRadius: 8, border: 'none', background: '#27ae60', color: '#fff', cursor: 'pointer' }}
+              onClick={() => {
+                setShowFinal(true);
+                setFinalPageStart(false);
+                setGameState('ready');
+              }}
+            >
+              Play Again
+            </button>
+          </div>
+        </GameWrapper>
+      ) : null}
+    </>
+>>>>>>> Ashan-2
   );
-};
+}
 
 // Styled Components
 const PlayPageWrapper = styled.div`
