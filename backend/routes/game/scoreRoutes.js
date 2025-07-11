@@ -10,5 +10,6 @@ router.get('/scores/user/:userId/:gameMode', scoreController.getUserBestScore);
 
 // Leaderboard route for frontend compatibility
 router.get('/leaderboard', scoreController.getLeaderboard);
-
+// Add compatibility route for /scores/leaderboard
+router.get('/scores/leaderboard', scoreController.getLeaderboard);
 module.exports = router;

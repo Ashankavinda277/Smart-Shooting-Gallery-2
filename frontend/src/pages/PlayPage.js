@@ -332,7 +332,7 @@ const PlayPage = () => {
     setIsLoading(true);
     try {
       // Defensive: handle missing user gracefully
-      const userId = user && user.id ? user.id : null;
+      const userId = user && (user.id || user._id) ? (user.id || user._id) : null;
       const username = user && user.username ? user.username : 'Guest';
       const response = await submitScore({
         user: userId,
@@ -360,7 +360,7 @@ const PlayPage = () => {
     const timePlayed = settings.gameDuration - timeLeft;
     const finalStats = calculateGameStats(score, totalClicks.current, timePlayed);
     setGameStats(finalStats);
-    if (!user || !user.id) {
+    if (!user || !(user.id || user._id)) {
       alert('You must be logged in to save your score!');
       localStorage.setItem('leaderboardRefresh', Date.now().toString());
       return;
@@ -411,148 +411,139 @@ const PlayPage = () => {
   // Show FinalPage after game mode selection, and navigate to PlayPage on Start
   const [showFinal, setShowFinal] = useState(true);
   const [finalPageStart, setFinalPageStart] = useState(false);
+  const FinalPage = React.useMemo(() => React.lazy(() => import('./FinalPage')), []);
 
-  if (showFinal && !finalPageStart) {
-    const FinalPage = React.lazy(() => import('./FinalPage'));
-    return (
-      <React.Suspense fallback={<div style={{color:'red',fontSize:24}}>Loading game page...</div>}>
-        <FinalPage
-          onStart={() => {
-            setShowFinal(false);
-            setFinalPageStart(true);
-            setTimeout(() => {
-              startGame();
-            }, 0);
-          }}
-          score={score}
-          timeLeft={timeLeft}
-        />
-      </React.Suspense>
-    );
-  }
-
-  // Show the actual PlayPage game UI (not the placeholder)
-  if (gameState === 'playing') {
-    return (
-      <GameWrapper>
-        <TopBar>
-          <Score>Score: {score}</Score>
-          <Timer $low={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}>{timeLeft}s</Timer>
-          <div style={{ display: 'flex', gap: 16 }}>
+  // Main render block
+  return (
+    <>
+      {showFinal && !finalPageStart ? (
+        <React.Suspense fallback={<div style={{color:'red',fontSize:24}}>Loading game page...</div>}>
+          <FinalPage
+            onStart={() => {
+              setShowFinal(false);
+              setFinalPageStart(true);
+              setTimeout(() => {
+                startGame();
+              }, 0);
+            }}
+            score={score}
+            timeLeft={timeLeft}
+          />
+        </React.Suspense>
+      ) : gameState === 'playing' ? (
+        <GameWrapper>
+          <TopBar>
+            <Score>Score: {score}</Score>
+            <Timer $low={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}>{timeLeft}s</Timer>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <button
+                style={{
+                  fontSize: 16,
+                  padding: '8px 18px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: '#f39c12',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  marginRight: 8
+                }}
+                onClick={pauseGame}
+              >
+                Pause
+              </button>
+              <button
+                style={{
+                  fontSize: 16,
+                  padding: '8px 18px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: '#e74c3c',
+                  color: '#fff',
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  // End game and show results
+                  endGame();
+                }}
+              >
+                Quit
+              </button>
+            </div>
+          </TopBar>
+          <GameArea ref={gameAreaRef} onClick={handleGameAreaClick}>
+            {targets.map(target => (
+              <Target
+                key={target.id}
+                color={target.color}
+                style={{
+                  position: 'absolute',
+                  left: target.left,
+                  top: target.top,
+                  width: target.size,
+                  height: target.size
+                }}
+              />
+            ))}
+            {hitPositions.map(hit => (
+              <HitDot key={hit.id} style={{ left: hit.x, top: hit.y }} />
+            ))}
+            {missPositions.map(miss => (
+              <MissDot key={miss.id} style={{ left: miss.x, top: miss.y }} />
+            ))}
+          </GameArea>
+        </GameWrapper>
+      ) : gameState === 'paused' ? (
+        <GameWrapper>
+          <TopBar>
+            <Score>Score: {score}</Score>
+            <Timer $low={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}>{timeLeft}s</Timer>
+          </TopBar>
+          <div style={{ color: '#fff', marginTop: 64, fontSize: 32, textAlign: 'center' }}>
+            <div>Game Paused</div>
             <button
-              style={{
-                fontSize: 16,
-                padding: '8px 18px',
-                borderRadius: 8,
-                border: 'none',
-                background: '#f39c12',
-                color: '#fff',
-                cursor: 'pointer',
-                marginRight: 8
-              }}
+              style={{ marginTop: 32, fontSize: 20, padding: '12px 32px', borderRadius: 8, border: 'none', background: '#27ae60', color: '#fff', cursor: 'pointer' }}
               onClick={pauseGame}
             >
-              Pause
+              Resume
             </button>
             <button
-              style={{
-                fontSize: 16,
-                padding: '8px 18px',
-                borderRadius: 8,
-                border: 'none',
-                background: '#e74c3c',
-                color: '#fff',
-                cursor: 'pointer'
-              }}
-              onClick={() => {
-                // End game and show results
-                endGame();
-              }}
+              style={{ marginTop: 24, marginLeft: 16, fontSize: 18, padding: '10px 24px', borderRadius: 8, border: 'none', background: '#e74c3c', color: '#fff', cursor: 'pointer' }}
+              onClick={endGame}
             >
               Quit
             </button>
           </div>
-        </TopBar>
-        <GameArea ref={gameAreaRef} onClick={handleGameAreaClick}>
-          {targets.map(target => (
-            <Target
-              key={target.id}
-              color={target.color}
-              style={{
-                position: 'absolute',
-                left: target.left,
-                top: target.top,
-                width: target.size,
-                height: target.size
+        </GameWrapper>
+      ) : gameState === 'finished' ? (
+        <GameWrapper>
+          <TopBar>
+            <Score>Final Score: {score}</Score>
+          </TopBar>
+          <div style={{ color: '#fff', marginTop: 32, fontSize: 24, textAlign: 'center' }}>
+            <div>Game Over!</div>
+            <div style={{ margin: '16px 0', fontSize: 22 }}>
+              <b>Player:</b> {user?.username || 'Guest'}<br />
+              <b>Game Mode:</b> {gameMode || 'easy'}<br />
+              <b>Score:</b> {score}
+            </div>
+            <div>Accuracy: {gameStats.accuracy.toFixed(1)}%</div>
+            <div>Hits per Second: {gameStats.hitsPerSecond.toFixed(2)}</div>
+            <div>Total Hits: {gameStats.totalHits}</div>
+            <button
+              style={{ marginTop: 24, fontSize: 18, padding: '10px 24px', borderRadius: 8, border: 'none', background: '#27ae60', color: '#fff', cursor: 'pointer' }}
+              onClick={() => {
+                setShowFinal(true);
+                setFinalPageStart(false);
+                setGameState('ready');
               }}
-            />
-          ))}
-          {hitPositions.map(hit => (
-            <HitDot key={hit.id} style={{ left: hit.x, top: hit.y }} />
-          ))}
-          {missPositions.map(miss => (
-            <MissDot key={miss.id} style={{ left: miss.x, top: miss.y }} />
-          ))}
-        </GameArea>
-      </GameWrapper>
-    );
-  }
-
-  // Show paused UI
-  if (gameState === 'paused') {
-    return (
-      <GameWrapper>
-        <TopBar>
-          <Score>Score: {score}</Score>
-          <Timer $low={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}>{timeLeft}s</Timer>
-        </TopBar>
-        <div style={{ color: '#fff', marginTop: 64, fontSize: 32, textAlign: 'center' }}>
-          <div>Game Paused</div>
-          <button
-            style={{ marginTop: 32, fontSize: 20, padding: '12px 32px', borderRadius: 8, border: 'none', background: '#27ae60', color: '#fff', cursor: 'pointer' }}
-            onClick={pauseGame}
-          >
-            Resume
-          </button>
-          <button
-            style={{ marginTop: 24, marginLeft: 16, fontSize: 18, padding: '10px 24px', borderRadius: 8, border: 'none', background: '#e74c3c', color: '#fff', cursor: 'pointer' }}
-            onClick={endGame}
-          >
-            Quit
-          </button>
-        </div>
-      </GameWrapper>
-    );
-  }
-
-  // Show results after game ends
-  if (gameState === 'finished') {
-    return (
-      <GameWrapper>
-        <TopBar>
-          <Score>Final Score: {score}</Score>
-        </TopBar>
-        <div style={{ color: '#fff', marginTop: 32, fontSize: 24, textAlign: 'center' }}>
-          <div>Game Over!</div>
-          <div style={{ margin: '16px 0', fontSize: 22 }}>
-            <b>Player:</b> {user?.username || 'Guest'}<br />
-            <b>Game Mode:</b> {gameMode || 'easy'}<br />
-            <b>Score:</b> {score}
+            >
+              Play Again
+            </button>
           </div>
-          <div>Accuracy: {gameStats.accuracy.toFixed(1)}%</div>
-          <div>Hits per Second: {gameStats.hitsPerSecond.toFixed(2)}</div>
-          <div>Total Clicks: {gameStats.totalClicks}</div>
-          <div>Total Hits: {gameStats.totalHits}</div>
-          <button style={{ marginTop: 24, fontSize: 18, padding: '10px 24px', borderRadius: 8, border: 'none', background: '#27ae60', color: '#fff', cursor: 'pointer' }} onClick={() => window.location.reload()}>Play Again</button>
-        </div>
-
-      </GameWrapper>
-    );
-  }
-
-
-  // Optionally, handle other states (paused, etc.)
-  return null;
+        </GameWrapper>
+      ) : null}
+    </>
+  );
 }
 
 export default PlayPage;

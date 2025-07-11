@@ -54,7 +54,6 @@ const RegisterPage = () => {
       const response = await registerUser(
         username,
         parseInt(age),
-        "easy",
         password
       );
       console.log("✅ Response from registerUser:", response);

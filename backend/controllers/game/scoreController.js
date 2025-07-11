@@ -7,6 +7,7 @@ const { successResponse, errorResponse } = require('../../utils/responseUtil');
  * @route POST /api/game/scores
  */
 exports.saveScore = async (req, res) => {
+  console.log('Score submission received:', req.body);
   const { user, score, accuracy, gameMode, timePlayed } = req.body;
   try {
     // Debug log to verify score save request
@@ -106,6 +107,7 @@ exports.getLeaderboard = async (req, res) => {
         .limit(limit)
         .populate('user', 'username age');
     }
+        console.log('Leaderboard scores:', scores);
     return successResponse(res, 200, 'Leaderboard retrieved successfully', { scores });
   } catch (err) {
     return errorResponse(res, 400, err.message);

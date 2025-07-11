@@ -48,11 +48,10 @@ const apiRequest = async (endpoint, method = "GET", body = null) => {
   }
 };
 
-export const registerUser = async (username, age, mode, password) => {
+export const registerUser = async (username, age, password) => {
   return apiRequest("/users/register", "POST", {
     username,
     age,
-    mode,
     password,
   });
 };
