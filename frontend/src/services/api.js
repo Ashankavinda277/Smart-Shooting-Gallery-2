@@ -95,8 +95,13 @@ export const fetchLeaderboard = async (mode = "all") => {
  * @param {string} userId - User ID
  * @returns {Promise<Object>} Player progress data
  */
-export const fetchPlayerProgress = async (userId) => {
-  return apiRequest(`/game/scores/player/${userId}`);
+/**
+ * Fetch player progress data by username
+ * @param {string} username - Username
+ * @returns {Promise<Object>} Player progress data
+ */
+export const fetchPlayerProgressByUsername = async (username) => {
+  return apiRequest(`/game/scores/player/username/${username}`);
 };
 
 /**

@@ -19,7 +19,11 @@ const LeaderboardPage = () => {
       try {
         const response = await fetchLeaderboard(activeMode);
         if (response.ok) {
-          setLeaderboardData(response.data || []);
+          // Support both {scores: [...]} and direct array
+          const scores = Array.isArray(response.data)
+            ? response.data
+            : (response.data?.scores || []);
+          setLeaderboardData(scores);
         } else {
           setError(response.error || 'Failed to load leaderboard data');
         }
@@ -31,7 +35,18 @@ const LeaderboardPage = () => {
         if (needsRefresh && setNeedsRefresh) setNeedsRefresh(false);
       }
     };
+
+    // Listen for leaderboard refresh trigger from PlayPage
+    const handleStorage = (e) => {
+      if (e.key === 'leaderboardRefresh') {
+        loadLeaderboard();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
     loadLeaderboard();
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+    };
   }, [activeMode, needsRefresh, setNeedsRefresh]);
   
   const handleModeChange = (mode) => {

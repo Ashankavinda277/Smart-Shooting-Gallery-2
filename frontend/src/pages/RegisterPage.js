@@ -27,8 +27,12 @@ const RegisterPage = () => {
         "easy",
         password
       );
-      if (response.ok) {
-        setUser(response.user);
+      // Always use user from response.data
+      const userObj = response.data && response.data.user;
+      if (response.ok && userObj && userObj.id) {
+        setError(""); // Clear any lingering errors
+        setUser(userObj);
+        console.log("Navigating to /game-modes after sign up");
         navigate("/game-modes");
       } else {
         if (response.error && response.error.includes("already exists")) {
@@ -54,8 +58,12 @@ const RegisterPage = () => {
     setError("");
     try {
       const response = await loginUser(username, password);
-      if (response.ok) {
-        setUser(response.user);
+      // Always use user from response.data
+      const userObj = response.data && response.data.user;
+      if (response.ok && userObj && userObj.id) {
+        setError(""); // Clear any lingering errors
+        setUser(userObj);
+        console.log("Navigating to /game-modes after sign in");
         navigate("/game-modes");
       } else {
         setError(response.error || "Login failed");
@@ -76,7 +84,7 @@ const RegisterPage = () => {
 
         <ToggleButtonWrapper>
           <ToggleButton
-            active={isSignUp}
+            $active={isSignUp}
             onClick={() => {
               setIsSignUp(true);
               setError("");
@@ -86,7 +94,7 @@ const RegisterPage = () => {
             Sign Up
           </ToggleButton>
           <ToggleButton
-            active={!isSignUp}
+            $active={!isSignUp}
             onClick={() => {
               setIsSignUp(false);
               setError("");
@@ -190,13 +198,13 @@ const ToggleButton = styled.button`
   font-size: 1rem;
   border: 2px solid white;
   border-radius: 30px;
-  background: ${({ active }) => (active ? "white" : "transparent")};
-  color: ${({ active }) => (active ? "#4a148c" : "white")};
+  background: ${({ $active }) => ($active ? "white" : "transparent")};
+  color: ${({ $active }) => ($active ? "#4a148c" : "white")};
   cursor: pointer;
   transition: all 0.3s ease;
 
   &:hover {
-    background: ${({ active }) => (active ? "white" : "rgba(255,255,255,0.2)")};
+    background: ${({ $active }) => ($active ? "white" : "rgba(255,255,255,0.2)")};
   }
 
   &:disabled {

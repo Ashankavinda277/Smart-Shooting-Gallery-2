@@ -35,8 +35,14 @@ app.use(express.static(path.join(__dirname, '../frontend/public')));
 // Connect to MongoDB
 connectDB();
 
+
 // Apply routes
 app.use('/api', routes);
+
+// Regex-based catch-all: serve index.html for React Router (SPA support), skip static files and API
+app.get(/^\/(?!api).*(?<!\..*)$/, (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/public/index.html'));
+});
 
 // Apply error handling middleware
 app.use(errorHandler);

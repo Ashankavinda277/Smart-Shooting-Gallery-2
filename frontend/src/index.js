@@ -6,14 +6,14 @@ if (typeof process === 'undefined') {
 
 import React from 'react';
 import ReactDOM from 'react-dom';
-import App from './App';
+import AppWrapper from './App';
 import './styles/index.css';
 import './styles/Header.css';
 import './styles/Target.css';
 
 ReactDOM.render(
   <React.StrictMode>
-    <App />
+    <AppWrapper />
   </React.StrictMode>,
   document.getElementById('root')
 );

@@ -5,6 +5,7 @@ import Loader from '../components/common/Loader';
 
 const FinalPage = ({ onStart }) => {
   const navigate = useNavigate();
+  console.log('FinalPage rendered');
   return (
     <FinalPageWrapper>
       <Header>WELCOME TO THE GAME</Header>

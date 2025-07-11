@@ -104,6 +104,8 @@ const MissDot = styled.div`
 `;
 
 const PlayPage = () => {
+  const { user, gameMode, gameSettings, setNeedsRefresh, loading } = useGameContext();
+  // ...existing code...
   const [gameState, setGameState] = useState('ready');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -128,7 +130,19 @@ const PlayPage = () => {
   const wsRef = useRef(null);
 
   const navigate = useNavigate();
-  const { user, gameMode, gameSettings, setNeedsRefresh } = useGameContext();
+  // ...existing code...
+
+
+  // Only redirect if user is explicitly null/false, not undefined (undefined = still loading)
+  React.useEffect(() => {
+    if (!loading && (user === null || user === false)) {
+      alert('You must be logged in to play!');
+      navigate('/login');
+    }
+  }, [user, loading, navigate]);
+
+  // If context is still loading, show loader
+  if (loading) return <Loader />;
 
   const gameAreaDimensions = useMemo(() => {
     if (!gameAreaRef.current) return { width: 0, height: 0 };
@@ -313,17 +327,20 @@ const PlayPage = () => {
     return { accuracy, hitsPerSecond, totalClicks: totalClicksCount, totalHits: finalScore };
   }, [timeLeft]);
 
-  const submitGameScore = useCallback(async (finalScore, stats) => {
+  const submitGameScore = useCallback(async (finalScore, stats, timePlayedOverride) => {
     if (!isMounted.current) return;
     setIsLoading(true);
     try {
+      // Defensive: handle missing user gracefully
+      const userId = user && user.id ? user.id : null;
+      const username = user && user.username ? user.username : 'Guest';
       const response = await submitScore({
-        userId: user.id,
-        username: user.username,
+        user: userId,
+        username: username,
         score: finalScore,
-        mode: gameMode || 'easy',
         accuracy: stats.accuracy,
-        duration: settings.gameDuration
+        gameMode: gameMode || 'easy',
+        timePlayed: typeof timePlayedOverride === 'number' ? timePlayedOverride : settings.gameDuration
       });
       if (!response.ok) console.error('Submit failed:', response.error);
     } catch (err) {
@@ -339,14 +356,20 @@ const PlayPage = () => {
     clearInterval(targetMoveIntervalRef.current);
     closeWebSocket();
     setGameState('finished');
-    const finalStats = calculateGameStats(score, totalClicks.current, settings.gameDuration);
+    // Calculate actual time played if quitting early
+    const timePlayed = settings.gameDuration - timeLeft;
+    const finalStats = calculateGameStats(score, totalClicks.current, timePlayed);
     setGameStats(finalStats);
-    if (user?.id) {
-      submitGameScore(score, finalStats).then(() => {
-        if (setNeedsRefresh) setNeedsRefresh(true);
-      });
+    if (!user || !user.id) {
+      alert('You must be logged in to save your score!');
+      localStorage.setItem('leaderboardRefresh', Date.now().toString());
+      return;
     }
-  }, [score, settings.gameDuration, calculateGameStats, user, setNeedsRefresh, submitGameScore]);
+    submitGameScore(score, finalStats, timePlayed).then(() => {
+      if (setNeedsRefresh) setNeedsRefresh(true);
+      localStorage.setItem('leaderboardRefresh', Date.now().toString());
+    });
+  }, [score, settings.gameDuration, timeLeft, calculateGameStats, user, setNeedsRefresh, submitGameScore]);
 
   const handleGameAreaClick = useCallback((e) => {
     if (gameState !== 'playing' || !gameAreaRef.current) return;
@@ -392,7 +415,7 @@ const PlayPage = () => {
   if (showFinal && !finalPageStart) {
     const FinalPage = React.lazy(() => import('./FinalPage'));
     return (
-      <React.Suspense fallback={<Loader />}>
+      <React.Suspense fallback={<div style={{color:'red',fontSize:24}}>Loading game page...</div>}>
         <FinalPage
           onStart={() => {
             setShowFinal(false);
@@ -415,6 +438,40 @@ const PlayPage = () => {
         <TopBar>
           <Score>Score: {score}</Score>
           <Timer $low={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}>{timeLeft}s</Timer>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <button
+              style={{
+                fontSize: 16,
+                padding: '8px 18px',
+                borderRadius: 8,
+                border: 'none',
+                background: '#f39c12',
+                color: '#fff',
+                cursor: 'pointer',
+                marginRight: 8
+              }}
+              onClick={pauseGame}
+            >
+              Pause
+            </button>
+            <button
+              style={{
+                fontSize: 16,
+                padding: '8px 18px',
+                borderRadius: 8,
+                border: 'none',
+                background: '#e74c3c',
+                color: '#fff',
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                // End game and show results
+                endGame();
+              }}
+            >
+              Quit
+            </button>
+          </div>
         </TopBar>
         <GameArea ref={gameAreaRef} onClick={handleGameAreaClick}>
           {targets.map(target => (
@@ -441,6 +498,33 @@ const PlayPage = () => {
     );
   }
 
+  // Show paused UI
+  if (gameState === 'paused') {
+    return (
+      <GameWrapper>
+        <TopBar>
+          <Score>Score: {score}</Score>
+          <Timer $low={timeLeft <= GAME_CONSTANTS.RED_TIME_THRESHOLD}>{timeLeft}s</Timer>
+        </TopBar>
+        <div style={{ color: '#fff', marginTop: 64, fontSize: 32, textAlign: 'center' }}>
+          <div>Game Paused</div>
+          <button
+            style={{ marginTop: 32, fontSize: 20, padding: '12px 32px', borderRadius: 8, border: 'none', background: '#27ae60', color: '#fff', cursor: 'pointer' }}
+            onClick={pauseGame}
+          >
+            Resume
+          </button>
+          <button
+            style={{ marginTop: 24, marginLeft: 16, fontSize: 18, padding: '10px 24px', borderRadius: 8, border: 'none', background: '#e74c3c', color: '#fff', cursor: 'pointer' }}
+            onClick={endGame}
+          >
+            Quit
+          </button>
+        </div>
+      </GameWrapper>
+    );
+  }
+
   // Show results after game ends
   if (gameState === 'finished') {
     return (
@@ -450,6 +534,11 @@ const PlayPage = () => {
         </TopBar>
         <div style={{ color: '#fff', marginTop: 32, fontSize: 24, textAlign: 'center' }}>
           <div>Game Over!</div>
+          <div style={{ margin: '16px 0', fontSize: 22 }}>
+            <b>Player:</b> {user?.username || 'Guest'}<br />
+            <b>Game Mode:</b> {gameMode || 'easy'}<br />
+            <b>Score:</b> {score}
+          </div>
           <div>Accuracy: {gameStats.accuracy.toFixed(1)}%</div>
           <div>Hits per Second: {gameStats.hitsPerSecond.toFixed(2)}</div>
           <div>Total Clicks: {gameStats.totalClicks}</div>
